@@ -57,7 +57,7 @@ const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
 }
 
 const navigationItems = [
-  { name: 'Dashboard', href: '/', icon: 'LayoutDashboard' },
+  { name: 'Dashboard', href: '/dashboard', icon: 'LayoutDashboard' },
   { name: 'Students', href: '/students', icon: 'GraduationCap' },
   { name: 'Admission Form', href: '/admission', icon: 'ClipboardList' },
   { name: 'Teachers', href: '/teachers', icon: 'Users' },
