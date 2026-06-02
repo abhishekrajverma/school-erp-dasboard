@@ -30,6 +30,12 @@ export const teachersData = [
 ]
 
 // Extended Fee Records
+export type FeeLineItem = {
+  feeType: string
+  amount: number
+  lineDiscount: number
+}
+
 export type FeeRecord = {
   id: string
   invoiceNo: string
@@ -46,6 +52,8 @@ export type FeeRecord = {
   paidDate: string | null
   status: string
   paymentMethod: string | null
+  /** Line breakdown when multiple fee types paid together */
+  feeItems?: FeeLineItem[]
 }
 
 export const feeRecordsData: FeeRecord[] = [

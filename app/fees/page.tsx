@@ -47,10 +47,21 @@ import { SlideOver } from '@/components/shared/slide-over'
 import { ConfirmDialog } from '@/components/shared/confirm-dialog'
 import { PageHeader, StatCard, Tabs, FormSection, FormField } from '@/components/shared/page-components'
 import { feeRecordsData, monthlyFeeCollection, studentsData, type FeeRecord } from '@/lib/erp-data'
-import { feeRecordSchema, type FeeRecordFormData } from '@/lib/schemas'
+import {
+  feeRecordSchema,
+  multiFeePaymentSchema,
+  type FeeRecordFormData,
+  type MultiFeePaymentFormData,
+} from '@/lib/schemas'
 import { formatCurrency } from '@/lib/format'
 import { exportToCsv } from '@/lib/export'
 import { useToast } from '@/hooks/use-toast'
+import { MultiFeePaymentForm } from '@/components/fees/multi-fee-payment-form'
+import {
+  buildDefaultFeeLines,
+  calculateMultiFeeTotals,
+} from '@/lib/fees/calculations'
+import { SCHOOL_FEE_TYPES } from '@/lib/fees/constants'
 
 const outstandingByClass = [
   { class: '8-B', amount: 42000 },
@@ -70,7 +81,7 @@ export default function FeesPage() {
   const [showDelete, setShowDelete] = React.useState(false)
   const [selected, setSelected] = React.useState<FeeRecord | null>(null)
 
-  const form = useForm<FeeRecordFormData>({
+  const legacyForm = useForm<FeeRecordFormData>({
     resolver: zodResolver(feeRecordSchema),
     defaultValues: {
       studentName: '',
@@ -85,6 +96,27 @@ export default function FeesPage() {
     },
   })
 
+  const multiForm = useForm<MultiFeePaymentFormData>({
+    resolver: zodResolver(multiFeePaymentSchema),
+    defaultValues: {
+      studentName: '',
+      class: '',
+      dueDate: '',
+      feeLines: buildDefaultFeeLines(),
+      globalDiscount: 0,
+      discountPercent: 0,
+      fine: 0,
+      amountPaying: 0,
+      paymentMethod: 'upi',
+      status: 'pending',
+    },
+  })
+
+  const classOptions = React.useMemo(
+    () => [...new Set(studentsData.map((s) => s.class))],
+    [],
+  )
+
   const filtered = records.filter((r) => {
     if (activeTab === 'all') return true
     if (activeTab === 'scholarship') return r.discount > 0
@@ -96,32 +128,107 @@ export default function FeesPage() {
   const totalPending = records.reduce((a, r) => a + r.pending, 0)
   const overdueAmount = records.filter((r) => r.status === 'overdue').reduce((a, r) => a + r.pending, 0)
 
-  const handleAdd = (data: FeeRecordFormData) => {
-    const pending = Math.max(0, data.totalFee - data.paid - data.discount + data.fine)
+  const resetMultiForm = () => {
+    multiForm.reset({
+      studentName: '',
+      class: '',
+      dueDate: '',
+      feeLines: buildDefaultFeeLines(),
+      globalDiscount: 0,
+      discountPercent: 0,
+      fine: 0,
+      amountPaying: 0,
+      paymentMethod: 'upi',
+      status: 'pending',
+    })
+  }
+
+  const handleMultiFeeAdd = (data: MultiFeePaymentFormData) => {
+    const totals = calculateMultiFeeTotals(data)
+    const activeLines = data.feeLines.filter((l) => l.enabled && l.amount > 0)
+    const feeItems = activeLines.map((l) => ({
+      feeType: l.feeType,
+      amount: l.amount,
+      lineDiscount: l.lineDiscount || 0,
+    }))
+    const feeTypeLabel =
+      activeLines.length > 1
+        ? 'combined'
+        : activeLines[0]?.feeType ?? 'combined'
+
     const newRecord: FeeRecord = {
       id: String(records.length + 1),
       invoiceNo: `INV2024${String(records.length + 1).padStart(3, '0')}`,
       studentId: '0',
       studentName: data.studentName,
       class: data.class,
-      feeType: data.feeType,
-      totalFee: data.totalFee,
-      paid: data.paid,
-      pending,
-      discount: data.discount,
-      fine: data.fine,
+      feeType: feeTypeLabel,
+      feeItems,
+      totalFee: totals.subtotal,
+      paid: totals.amountPaying,
+      pending: totals.balance,
+      discount: totals.totalDiscount,
+      fine: totals.fine,
       dueDate: data.dueDate,
-      paidDate: data.paid >= data.totalFee ? new Date().toISOString().split('T')[0] : null,
+      paidDate:
+        totals.balance === 0 && totals.amountPaying > 0
+          ? new Date().toISOString().split('T')[0]
+          : null,
       status: data.status,
-      paymentMethod: data.paid > 0 ? 'upi' : null,
+      paymentMethod: data.amountPaying > 0 ? data.paymentMethod ?? 'upi' : null,
     }
     setRecords([...records, newRecord])
     setShowAdd(false)
-    form.reset()
-    toast({ title: 'Fee record created', description: `Invoice ${newRecord.invoiceNo} added.` })
+    resetMultiForm()
+    const typesSummary = activeLines.map((l) => l.feeType.replace('-', ' ')).join(', ')
+    toast({
+      title: 'Combined fee payment recorded',
+      description: `Invoice ${newRecord.invoiceNo} — ${activeLines.length} fee type(s): ${typesSummary}.`,
+    })
   }
 
-  const handleEdit = (data: FeeRecordFormData) => {
+  const handleMultiFeeEdit = (data: MultiFeePaymentFormData) => {
+    if (!selected) return
+    const totals = calculateMultiFeeTotals(data)
+    const activeLines = data.feeLines.filter((l) => l.enabled && l.amount > 0)
+    const feeItems = activeLines.map((l) => ({
+      feeType: l.feeType,
+      amount: l.amount,
+      lineDiscount: l.lineDiscount || 0,
+    }))
+
+    setRecords(
+      records.map((r) =>
+        r.id === selected.id
+          ? {
+              ...r,
+              studentName: data.studentName,
+              class: data.class,
+              feeType: activeLines.length > 1 ? 'combined' : activeLines[0]?.feeType ?? r.feeType,
+              feeItems,
+              totalFee: totals.subtotal,
+              paid: totals.amountPaying,
+              pending: totals.balance,
+              discount: totals.totalDiscount,
+              fine: totals.fine,
+              dueDate: data.dueDate,
+              paidDate:
+                totals.balance === 0 && totals.amountPaying > 0
+                  ? new Date().toISOString().split('T')[0]
+                  : null,
+              status: data.status,
+              paymentMethod: data.amountPaying > 0 ? data.paymentMethod ?? r.paymentMethod : null,
+            }
+          : r,
+      ),
+    )
+    setShowEdit(false)
+    setSelected(null)
+    resetMultiForm()
+    toast({ title: 'Fee record updated' })
+  }
+
+  const handleLegacyEdit = (data: FeeRecordFormData) => {
     if (!selected) return
     const pending = Math.max(0, data.totalFee - data.paid - data.discount + data.fine)
     setRecords(
@@ -139,13 +246,14 @@ export default function FeesPage() {
               fine: data.fine,
               dueDate: data.dueDate,
               status: data.status,
+              feeItems: undefined,
             }
-          : r
-      )
+          : r,
+      ),
     )
     setShowEdit(false)
     setSelected(null)
-    form.reset()
+    legacyForm.reset()
     toast({ title: 'Fee record updated' })
   }
 
@@ -157,20 +265,87 @@ export default function FeesPage() {
     toast({ title: 'Fee record deleted', variant: 'destructive' })
   }
 
+  const schoolFeeTypeIds = SCHOOL_FEE_TYPES.map((f) => f.id)
+
   const openEdit = (record: FeeRecord) => {
     setSelected(record)
-    form.reset({
-      studentName: record.studentName,
-      class: record.class,
-      feeType: record.feeType as FeeRecordFormData['feeType'],
-      totalFee: record.totalFee,
-      paid: record.paid,
-      discount: record.discount,
-      fine: record.fine,
-      dueDate: record.dueDate,
-      status: record.status as FeeRecordFormData['status'],
-    })
+    const useMultiForm =
+      (record.feeItems && record.feeItems.length > 0) ||
+      schoolFeeTypeIds.includes(record.feeType as (typeof schoolFeeTypeIds)[number])
+
+    if (useMultiForm) {
+      const lines = buildDefaultFeeLines().map((defaultLine) => {
+        const fromItems = record.feeItems?.find((i) => i.feeType === defaultLine.feeType)
+        if (fromItems) {
+          return {
+            enabled: true,
+            feeType: defaultLine.feeType,
+            amount: fromItems.amount,
+            lineDiscount: fromItems.lineDiscount,
+          }
+        }
+        if (!record.feeItems && record.feeType === defaultLine.feeType) {
+          return {
+            enabled: true,
+            feeType: defaultLine.feeType,
+            amount: record.totalFee,
+            lineDiscount: 0,
+          }
+        }
+        return defaultLine
+      })
+      const lineDiscountSum = lines.reduce((s, l) => s + (l.lineDiscount || 0), 0)
+      multiForm.reset({
+        studentName: record.studentName,
+        class: record.class,
+        dueDate: record.dueDate,
+        feeLines: lines,
+        globalDiscount: Math.max(0, record.discount - lineDiscountSum),
+        discountPercent: 0,
+        fine: record.fine,
+        amountPaying: record.paid,
+        paymentMethod: (record.paymentMethod as MultiFeePaymentFormData['paymentMethod']) ?? 'upi',
+        status: record.status as MultiFeePaymentFormData['status'],
+      })
+    } else {
+      legacyForm.reset({
+        studentName: record.studentName,
+        class: record.class,
+        feeType: record.feeType as FeeRecordFormData['feeType'],
+        totalFee: record.totalFee,
+        paid: record.paid,
+        discount: record.discount,
+        fine: record.fine,
+        dueDate: record.dueDate,
+        status: record.status as FeeRecordFormData['status'],
+      })
+    }
     setShowEdit(true)
+  }
+
+  const editUsesMultiForm =
+    selected &&
+    ((selected.feeItems && selected.feeItems.length > 0) ||
+      schoolFeeTypeIds.includes(selected.feeType as (typeof schoolFeeTypeIds)[number]))
+
+  const formatFeeTypeCell = (record: FeeRecord) => {
+    if (record.feeItems && record.feeItems.length > 1) {
+      return (
+        <div className="flex flex-wrap gap-1 max-w-[180px]">
+          {record.feeItems.slice(0, 2).map((item) => (
+            <Badge key={item.feeType} variant="outline" className="text-xs capitalize">
+              {item.feeType.replace('-', ' ')}
+            </Badge>
+          ))}
+          {record.feeItems.length > 2 && (
+            <Badge variant="secondary" className="text-xs">
+              +{record.feeItems.length - 2}
+            </Badge>
+          )}
+        </div>
+      )
+    }
+    return <span className="capitalize text-sm">{record.feeType.replace('-', ' ')}</span>
   }
 
   const columns: ColumnDef<FeeRecord>[] = [
@@ -191,7 +366,7 @@ export default function FeesPage() {
       ),
     },
     { accessorKey: 'class', header: 'Class', cell: ({ row }) => <Badge variant="secondary">{row.original.class}</Badge> },
-    { accessorKey: 'feeType', header: 'Type', cell: ({ row }) => <span className="capitalize text-sm">{row.original.feeType}</span> },
+    { accessorKey: 'feeType', header: 'Type', cell: ({ row }) => formatFeeTypeCell(row.original) },
     { accessorKey: 'totalFee', header: 'Total', cell: ({ row }) => formatCurrency(row.original.totalFee) },
     { accessorKey: 'paid', header: 'Paid', cell: ({ row }) => <span className="text-green-500">{formatCurrency(row.original.paid)}</span> },
     { accessorKey: 'pending', header: 'Pending', cell: ({ row }) => <span className={row.original.pending > 0 ? 'text-yellow-500' : ''}>{formatCurrency(row.original.pending)}</span> },
@@ -213,51 +388,51 @@ export default function FeesPage() {
     },
   ]
 
-  const FeeForm = () => (
+  const LegacyFeeForm = () => (
     <div className="space-y-6">
       <FormSection title="Student & Fee">
-        <FormField label="Student Name" required error={form.formState.errors.studentName?.message}>
-          <Input {...form.register('studentName')} />
+        <FormField label="Student Name" required error={legacyForm.formState.errors.studentName?.message}>
+          <Input {...legacyForm.register('studentName')} />
         </FormField>
-        <FormField label="Class" required error={form.formState.errors.class?.message}>
-          <Select value={form.watch('class')} onValueChange={(v) => form.setValue('class', v)}>
+        <FormField label="Class" required error={legacyForm.formState.errors.class?.message}>
+          <Select value={legacyForm.watch('class')} onValueChange={(v) => legacyForm.setValue('class', v)}>
             <SelectTrigger><SelectValue placeholder="Select class" /></SelectTrigger>
             <SelectContent>
-              {[...new Set(studentsData.map((s) => s.class))].map((c) => (
+              {classOptions.map((c) => (
                 <SelectItem key={c} value={c}>{c}</SelectItem>
               ))}
             </SelectContent>
           </Select>
         </FormField>
         <FormField label="Fee Type" required>
-          <Select value={form.watch('feeType')} onValueChange={(v) => form.setValue('feeType', v as FeeRecordFormData['feeType'])}>
+          <Select value={legacyForm.watch('feeType')} onValueChange={(v) => legacyForm.setValue('feeType', v as FeeRecordFormData['feeType'])}>
             <SelectTrigger><SelectValue /></SelectTrigger>
             <SelectContent>
-              {['tuition', 'transport', 'library', 'lab', 'sports', 'other'].map((t) => (
-                <SelectItem key={t} value={t} className="capitalize">{t}</SelectItem>
+              {['tuition', 'transport', 'library', 'computer', 'smart-class', 'lab', 'sports', 'other'].map((t) => (
+                <SelectItem key={t} value={t} className="capitalize">{t.replace('-', ' ')}</SelectItem>
               ))}
             </SelectContent>
           </Select>
         </FormField>
-        <FormField label="Due Date" required error={form.formState.errors.dueDate?.message}>
-          <Input type="date" {...form.register('dueDate')} />
+        <FormField label="Due Date" required error={legacyForm.formState.errors.dueDate?.message}>
+          <Input type="date" {...legacyForm.register('dueDate')} />
         </FormField>
       </FormSection>
       <FormSection title="Amounts">
         <FormField label="Total Fee (₹)" required>
-          <Input type="number" {...form.register('totalFee', { valueAsNumber: true })} />
+          <Input type="number" {...legacyForm.register('totalFee', { valueAsNumber: true })} />
         </FormField>
         <FormField label="Paid (₹)">
-          <Input type="number" {...form.register('paid', { valueAsNumber: true })} />
+          <Input type="number" {...legacyForm.register('paid', { valueAsNumber: true })} />
         </FormField>
         <FormField label="Discount (₹)">
-          <Input type="number" {...form.register('discount', { valueAsNumber: true })} />
+          <Input type="number" {...legacyForm.register('discount', { valueAsNumber: true })} />
         </FormField>
         <FormField label="Fine (₹)">
-          <Input type="number" {...form.register('fine', { valueAsNumber: true })} />
+          <Input type="number" {...legacyForm.register('fine', { valueAsNumber: true })} />
         </FormField>
         <FormField label="Status">
-          <Select value={form.watch('status')} onValueChange={(v) => form.setValue('status', v as FeeRecordFormData['status'])}>
+          <Select value={legacyForm.watch('status')} onValueChange={(v) => legacyForm.setValue('status', v as FeeRecordFormData['status'])}>
             <SelectTrigger><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="paid">Paid</SelectItem>
@@ -281,8 +456,8 @@ export default function FeesPage() {
           <Button variant="outline" size="sm" className="gap-2" onClick={() => exportToCsv(records, 'fee-records')}>
             <Download className="h-4 w-4" />Export CSV
           </Button>
-          <Button size="sm" className="gap-2" onClick={() => setShowAdd(true)}>
-            <Plus className="h-4 w-4" />Add Fee Record
+          <Button size="sm" className="gap-2" onClick={() => { resetMultiForm(); setShowAdd(true) }}>
+            <Plus className="h-4 w-4" />Collect Fees
           </Button>
         </PageHeader>
 
@@ -345,19 +520,61 @@ export default function FeesPage() {
           searchPlaceholder="Search by student or invoice..."
           filterColumns={[
             { key: 'status', label: 'Status', options: [{ label: 'Paid', value: 'paid' }, { label: 'Pending', value: 'pending' }, { label: 'Overdue', value: 'overdue' }] },
-            { key: 'feeType', label: 'Type', options: [{ label: 'Tuition', value: 'tuition' }, { label: 'Transport', value: 'transport' }] },
+            {
+              key: 'feeType',
+              label: 'Type',
+              options: [
+                { label: 'Combined', value: 'combined' },
+                ...SCHOOL_FEE_TYPES.map((f) => ({ label: f.label, value: f.id })),
+              ],
+            },
           ]}
           showRowSelection
           onExport={() => exportToCsv(records, 'fee-records')}
         />
       </div>
 
-      <SlideOver open={showAdd} onClose={() => { setShowAdd(false); form.reset() }} title="Add Fee Record" description="Create a new fee invoice for a student." size="lg" footer={<div className="flex justify-end gap-3"><Button variant="outline" onClick={() => setShowAdd(false)}>Cancel</Button><Button onClick={form.handleSubmit(handleAdd)}>Create Record</Button></div>}>
-        <FeeForm />
+      <SlideOver
+        open={showAdd}
+        onClose={() => { setShowAdd(false); resetMultiForm() }}
+        title="Collect Fees"
+        description="Select Tuition, Transport, Library, Computer, Smart Class — pay multiple fees on one invoice with discounts."
+        size="xl"
+        footer={
+          <div className="flex justify-end gap-3">
+            <Button variant="outline" onClick={() => setShowAdd(false)}>Cancel</Button>
+            <Button onClick={multiForm.handleSubmit(handleMultiFeeAdd)}>Record Payment</Button>
+          </div>
+        }
+      >
+        <MultiFeePaymentForm form={multiForm} classOptions={classOptions} />
       </SlideOver>
 
-      <SlideOver open={showEdit} onClose={() => { setShowEdit(false); setSelected(null); form.reset() }} title="Edit Fee Record" size="lg" footer={<div className="flex justify-end gap-3"><Button variant="outline" onClick={() => setShowEdit(false)}>Cancel</Button><Button onClick={form.handleSubmit(handleEdit)}>Save Changes</Button></div>}>
-        <FeeForm />
+      <SlideOver
+        open={showEdit}
+        onClose={() => { setShowEdit(false); setSelected(null); resetMultiForm(); legacyForm.reset() }}
+        title={editUsesMultiForm ? 'Edit Fee Payment' : 'Edit Fee Record'}
+        size={editUsesMultiForm ? 'xl' : 'lg'}
+        footer={
+          <div className="flex justify-end gap-3">
+            <Button variant="outline" onClick={() => setShowEdit(false)}>Cancel</Button>
+            <Button
+              onClick={
+                editUsesMultiForm
+                  ? multiForm.handleSubmit(handleMultiFeeEdit)
+                  : legacyForm.handleSubmit(handleLegacyEdit)
+              }
+            >
+              Save Changes
+            </Button>
+          </div>
+        }
+      >
+        {editUsesMultiForm ? (
+          <MultiFeePaymentForm form={multiForm} classOptions={classOptions} />
+        ) : (
+          <LegacyFeeForm />
+        )}
       </SlideOver>
 
       <SlideOver open={showDetail} onClose={() => { setShowDetail(false); setSelected(null) }} title="Fee Details" size="md">
@@ -376,9 +593,27 @@ export default function FeesPage() {
               <div><p className="text-muted-foreground">Paid</p><p className="font-medium text-green-500">{formatCurrency(selected.paid)}</p></div>
               <div><p className="text-muted-foreground">Pending</p><p className="font-medium text-yellow-500">{formatCurrency(selected.pending)}</p></div>
               <div><p className="text-muted-foreground">Due Date</p><p className="font-medium">{selected.dueDate}</p></div>
-              {selected.discount > 0 && <div><p className="text-muted-foreground">Scholarship</p><p className="font-medium flex items-center gap-1"><Award className="h-3 w-3" />{formatCurrency(selected.discount)}</p></div>}
+              {selected.discount > 0 && <div><p className="text-muted-foreground">Total Discount</p><p className="font-medium flex items-center gap-1"><Award className="h-3 w-3" />{formatCurrency(selected.discount)}</p></div>}
               {selected.fine > 0 && <div><p className="text-muted-foreground">Fine</p><p className="font-medium text-red-500 flex items-center gap-1"><AlertTriangle className="h-3 w-3" />{formatCurrency(selected.fine)}</p></div>}
             </div>
+            {selected.feeItems && selected.feeItems.length > 0 && (
+              <div className="rounded-lg border border-border overflow-hidden">
+                <p className="text-sm font-medium px-4 py-2 bg-muted/50 border-b border-border">Fee breakdown</p>
+                <div className="divide-y divide-border">
+                  {selected.feeItems.map((item) => (
+                    <div key={item.feeType} className="flex justify-between px-4 py-2.5 text-sm">
+                      <span className="capitalize">{item.feeType.replace('-', ' ')}</span>
+                      <span>
+                        {formatCurrency(item.amount)}
+                        {item.lineDiscount > 0 && (
+                          <span className="text-green-500 ml-2">(−{formatCurrency(item.lineDiscount)})</span>
+                        )}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
             <div className="flex gap-2">
               <Button size="sm" className="gap-2" onClick={() => toast({ title: 'Receipt generated', description: selected.invoiceNo })}><Receipt className="h-4 w-4" />Generate Receipt</Button>
               <Button size="sm" variant="outline" className="gap-2"><FileText className="h-4 w-4" />Download Invoice</Button>

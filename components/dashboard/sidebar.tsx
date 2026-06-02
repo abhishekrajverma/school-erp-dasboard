@@ -24,6 +24,7 @@ import {
   BarChart3,
   Settings,
   Receipt,
+  ClipboardList,
   ChevronLeft,
   ChevronRight,
   Sparkles,
@@ -52,11 +53,13 @@ const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   BarChart3,
   Settings,
   Receipt,
+  ClipboardList,
 }
 
 const navigationItems = [
   { name: 'Dashboard', href: '/', icon: 'LayoutDashboard' },
   { name: 'Students', href: '/students', icon: 'GraduationCap' },
+  { name: 'Admission Form', href: '/admission', icon: 'ClipboardList' },
   { name: 'Teachers', href: '/teachers', icon: 'Users' },
   { name: 'Parents', href: '/parents', icon: 'UserCircle' },
   { name: 'Academics', href: '/academics', icon: 'BookOpen' },

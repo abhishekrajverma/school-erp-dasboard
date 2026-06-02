@@ -216,11 +216,11 @@ export const schoolSettingsSchema = z.object({
 
 export type SchoolSettingsFormData = z.infer<typeof schoolSettingsSchema>
 
-// Fee Record (extended CRUD)
+// Fee Record (extended CRUD) — legacy single-type
 export const feeRecordSchema = z.object({
   studentName: z.string().min(2, 'Student name is required'),
   class: z.string().min(1, 'Class is required'),
-  feeType: z.enum(['tuition', 'transport', 'library', 'lab', 'sports', 'other']),
+  feeType: z.enum(['tuition', 'transport', 'library', 'lab', 'sports', 'other', 'computer', 'smart-class', 'combined']),
   totalFee: z.number().min(1, 'Total fee must be positive'),
   paid: z.number().min(0),
   discount: z.number().min(0).default(0),
@@ -230,6 +230,52 @@ export const feeRecordSchema = z.object({
 })
 
 export type FeeRecordFormData = z.infer<typeof feeRecordSchema>
+
+const feeLineItemSchema = z.object({
+  enabled: z.boolean(),
+  feeType: z.enum(['tuition', 'transport', 'library', 'computer', 'smart-class']),
+  amount: z.number().min(0),
+  lineDiscount: z.number().min(0).default(0),
+})
+
+/** Combined multi-fee payment on one invoice */
+export const multiFeePaymentSchema = z
+  .object({
+    studentName: z.string().min(2, 'Student name is required'),
+    class: z.string().min(1, 'Class is required'),
+    dueDate: z.string().min(1, 'Due date is required'),
+    feeLines: z.array(feeLineItemSchema),
+    globalDiscount: z.number().min(0).default(0),
+    discountPercent: z.number().min(0).max(100).default(0),
+    fine: z.number().min(0).default(0),
+    amountPaying: z.number().min(0),
+    paymentMethod: z
+      .enum(['cash', 'card', 'upi', 'bank_transfer', 'cheque'])
+      .optional(),
+    status: z.enum(['paid', 'pending', 'overdue']).default('pending'),
+  })
+  .superRefine((data, ctx) => {
+    const active = data.feeLines.filter((l) => l.enabled)
+    if (active.length === 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Select at least one fee type to pay',
+        path: ['feeLines'],
+      })
+      return
+    }
+    const invalidAmount = active.some((l) => l.amount <= 0)
+    if (invalidAmount) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Enter amount for each selected fee type',
+        path: ['feeLines'],
+      })
+    }
+  })
+
+export type MultiFeePaymentFormData = z.infer<typeof multiFeePaymentSchema>
+export type FeeLineItemFormData = z.infer<typeof feeLineItemSchema>
 
 // Parent Schema
 export const parentSchema = z.object({
