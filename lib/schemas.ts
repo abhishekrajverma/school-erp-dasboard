@@ -200,6 +200,18 @@ export const teacherProfileUpdateSchema = z.object({
 
 export type TeacherProfileUpdateFormData = z.infer<typeof teacherProfileUpdateSchema>
 
+export const parentProfileUpdateSchema = z.object({
+  phone: z.string().min(10, 'Enter a valid phone number'),
+  alternatePhone: z
+    .string()
+    .refine((v) => !v.trim() || v.trim().length >= 10, 'Enter a valid alternate phone'),
+  occupation: z.string().min(2, 'Occupation is required'),
+  address: z.string().min(5, 'Address is required'),
+  emergencyContact: z.string().min(10, 'Emergency contact is required'),
+})
+
+export type ParentProfileUpdateFormData = z.infer<typeof parentProfileUpdateSchema>
+
 // Exam Schema
 export const examSchema = z.object({
   examName: z.string().min(1, 'Exam name is required'),

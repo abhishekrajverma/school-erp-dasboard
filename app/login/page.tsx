@@ -14,6 +14,7 @@ import {
   Mail,
   ShieldCheck,
   Sparkles,
+  Landmark,
   UserCheck,
   UserCircle,
   Users,
@@ -30,7 +31,7 @@ import { useAuth } from '@/components/providers/auth-provider'
 import { cn } from '@/lib/utils'
 
 const LOGIN_DESCRIPTION =
-  'Sign in as admin, teacher, student, or parent—each account sees only their own school data.'
+  'Sign in as admin, principal, teacher, student, or parent—each account sees only their own school data.'
 
 const roleOptions: {
   id: UserRole
@@ -38,6 +39,7 @@ const roleOptions: {
   icon: React.ComponentType<{ className?: string }>
 }[] = [
   { id: 'admin', label: 'Admin', icon: Users },
+  { id: 'principal', label: 'Principal', icon: Landmark },
   { id: 'teacher', label: 'Teacher', icon: UserCheck },
   { id: 'student', label: 'Student', icon: GraduationCap },
   { id: 'parent', label: 'Parent', icon: UserCircle },
@@ -246,7 +248,7 @@ export default function LoginPage() {
                   </FadeUpLine>
                 </motion.div>
 
-                <motion.div variants={itemVariants} className="grid grid-cols-4 gap-1 rounded-lg border border-border/60 bg-muted/30 p-1">
+                <motion.div variants={itemVariants} className="grid grid-cols-3 gap-1 rounded-lg border border-border/60 bg-muted/30 p-1 sm:grid-cols-5">
                   {roleOptions.map((opt) => {
                     const Icon = opt.icon
                     const active = role === opt.id

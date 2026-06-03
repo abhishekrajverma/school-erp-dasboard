@@ -3,6 +3,7 @@ export const PUBLIC_ROUTES = [
   '/',
   '/login',
   '/get-started',
+  '/school',
 ] as const
 
 /** Admin ERP dashboard routes (require admin role) */
@@ -33,6 +34,7 @@ export const PORTAL_ROUTES = {
   teacher: '/teacher-portal',
   student: '/student-portal',
   parent: '/parent-portal',
+  principal: '/principal-portal',
 } as const
 
 export function isPublicRoute(pathname: string): boolean {

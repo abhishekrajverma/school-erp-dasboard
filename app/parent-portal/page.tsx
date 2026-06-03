@@ -1,6 +1,7 @@
 'use client'
 
 import * as React from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { Bus, CalendarCheck, CreditCard, Users } from 'lucide-react'
 import { PortalGuard } from '@/components/portal/portal-guard'
@@ -16,6 +17,7 @@ import { ChildAttendancePanel } from '@/components/parent-portal/child-attendanc
 import { ParentFeesPanel } from '@/components/parent-portal/parent-fees-panel'
 import { ParentTransportPanel } from '@/components/parent-portal/parent-transport-panel'
 import { ParentNoticesPanel } from '@/components/parent-portal/parent-notices-panel'
+import { ParentProfilePanel } from '@/components/parent-portal/parent-profile-panel'
 import { getParentNoticesRich } from '@/lib/parent-notices'
 import { getChildTransportDetails, hasTransportOptIn } from '@/lib/parent-transport'
 import {
@@ -25,23 +27,59 @@ import {
   getChildExams,
 } from '@/lib/parent-portal'
 import { getParentChildFees, summarizeParentFees } from '@/lib/parent-fees'
+import {
+  getParentProfileDetails,
+  getParentProfilePhotoUrl,
+  loadParentProfilePhotos,
+} from '@/lib/parent-profile'
+import {
+  getParentPortalTabFromSearch,
+  getParentPortalTabHref,
+  PARENT_PORTAL_TABS,
+  type ParentPortalTabId,
+} from '@/lib/parent-portal-nav'
 
 export default function ParentPortalPage() {
   return (
     <PortalGuard allowedRoles={['parent']}>
-      <ParentPortalContent />
+      <React.Suspense fallback={null}>
+        <ParentPortalContent />
+      </React.Suspense>
     </PortalGuard>
   )
 }
 
 function ParentPortalContent() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
   const session = getSession()
   const parentId = session?.userId ?? ''
-  const [activeTab, setActiveTab] = React.useState('overview')
+  const activeTab = getParentPortalTabFromSearch(searchParams.get('tab'))
   const [selectedChildId, setSelectedChildId] = React.useState('')
+  const [profileVersion, setProfileVersion] = React.useState(0)
+
+  const refreshProfile = React.useCallback(() => {
+    setProfileVersion((v) => v + 1)
+    window.dispatchEvent(new Event('edusync-parent-profile-updated'))
+  }, [])
+
+  const setActiveTab = React.useCallback(
+    (tab: ParentPortalTabId) => {
+      router.replace(getParentPortalTabHref(tab), { scroll: false })
+    },
+    [router],
+  )
 
   const parent = getParentById(parentId)
   const children = getParentChildren(parentId)
+  const profilePhotos = React.useMemo(() => loadParentProfilePhotos(), [profileVersion])
+  const profileDetails = React.useMemo(
+    () => getParentProfileDetails(parentId),
+    [parentId, profileVersion],
+  )
+  const profilePhotoUrl = parent
+    ? getParentProfilePhotoUrl(parentId, profilePhotos, parent.avatar)
+    : ''
 
   React.useEffect(() => {
     if (children.length > 0 && !selectedChildId) {
@@ -86,16 +124,18 @@ function ParentPortalContent() {
           className="flex flex-col gap-4 rounded-xl border border-border bg-card p-5 sm:flex-row sm:items-center"
         >
           <Avatar className="h-16 w-16 ring-2 ring-primary/20">
-            <AvatarImage src={parent.avatar} alt={parent.name} />
+            <AvatarImage src={profilePhotoUrl} alt={parent.name} />
             <AvatarFallback>{parent.firstName[0]}{parent.lastName[0]}</AvatarFallback>
           </Avatar>
           <div className="flex-1 space-y-1">
             <h2 className="text-lg font-semibold">{parent.name}</h2>
             <p className="text-sm text-muted-foreground">
-              {parent.occupation} · {children.length} linked{' '}
+              {profileDetails?.occupation ?? parent.occupation} · {children.length} linked{' '}
               {children.length === 1 ? 'student' : 'students'}
             </p>
-            <p className="text-xs text-muted-foreground">{parent.phone} · {parent.email}</p>
+            <p className="text-xs text-muted-foreground">
+              {profileDetails?.phone ?? parent.phone} · {parent.email}
+            </p>
           </div>
         </motion.div>
 
@@ -119,16 +159,14 @@ function ParentPortalContent() {
         )}
 
         <Tabs
-          tabs={[
-            { id: 'overview', label: 'Overview' },
-            { id: 'children', label: 'My Children', count: children.length },
-            { id: 'fees', label: 'Fees' },
-            { id: 'attendance', label: 'Attendance' },
-            { id: 'transport', label: 'Transport' },
-            { id: 'notices', label: 'Notices', count: parentNotices.length },
-          ]}
+          tabs={PARENT_PORTAL_TABS.map((tab) => ({
+            id: tab.id,
+            label: tab.label,
+            ...(tab.id === 'children' ? { count: children.length } : {}),
+            ...(tab.id === 'notices' ? { count: parentNotices.length } : {}),
+          }))}
           activeTab={activeTab}
-          onChange={setActiveTab}
+          onChange={(tab) => setActiveTab(tab as ParentPortalTabId)}
         />
 
         {activeTab === 'overview' && selectedChild && (
@@ -329,6 +367,14 @@ function ParentPortalContent() {
 
         {activeTab === 'notices' && (
           <ParentNoticesPanel onNavigateToFees={() => setActiveTab('fees')} />
+        )}
+
+        {activeTab === 'profile' && (
+          <ParentProfilePanel
+            parentId={parentId}
+            onPhotoUpdated={refreshProfile}
+            onDetailsUpdated={refreshProfile}
+          />
         )}
       </div>
     </PortalLayout>

@@ -28,6 +28,8 @@ export function getRoleHomePath(role: UserRole): string {
   switch (role) {
     case 'admin':
       return '/dashboard'
+    case 'principal':
+      return '/principal-portal'
     case 'teacher':
       return '/teacher-portal'
     case 'student':

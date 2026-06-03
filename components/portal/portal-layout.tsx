@@ -2,19 +2,28 @@
 
 import * as React from 'react'
 import Link from 'next/link'
-import { usePathname, useRouter } from 'next/navigation'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Bell,
+  Bus,
+  CalendarCheck,
   ChevronLeft,
   ChevronRight,
+  CreditCard,
+  BookOpen,
   GraduationCap,
+  Landmark,
+  LayoutDashboard,
   LogOut,
   Moon,
   Sparkles,
   Sun,
+  User,
   UserCheck,
   UserCircle,
+  Users,
+  Wallet,
 } from 'lucide-react'
 import { useTheme } from 'next-themes'
 import { cn } from '@/lib/utils'
@@ -33,19 +42,63 @@ import type { UserRole } from '@/lib/portal-users'
 import { getTeacherById } from '@/lib/teacher-portal'
 import { getStudentById } from '@/lib/student-portal'
 import { getParentById } from '@/lib/parent-portal'
+import {
+  getParentProfilePhotoUrl,
+  loadParentProfilePhotos,
+} from '@/lib/parent-profile'
 import { loadTeacherProfilePhotos, getTeacherProfilePhotoUrl } from '@/lib/teacher-portal'
+import {
+  getParentPortalTabFromSearch,
+  type ParentPortalTabId,
+} from '@/lib/parent-portal-nav'
+import {
+  getPrincipalPortalTabFromSearch,
+  type PrincipalPortalTabId,
+} from '@/lib/principal-portal-nav'
+import { getPrincipalProfile } from '@/lib/principal-portal'
+import { SignedInRoleLabel } from '@/components/portal/signed-in-role-label'
 
-const navByRole: Record<
-  UserRole,
-  { name: string; href: string; icon: React.ComponentType<{ className?: string }> }[]
-> = {
-  admin: [],
-  teacher: [{ name: 'My Portal', href: '/teacher-portal', icon: UserCheck }],
-  student: [{ name: 'My Portal', href: '/student-portal', icon: GraduationCap }],
-  parent: [{ name: 'My Portal', href: '/parent-portal', icon: UserCircle }],
+type PortalNavItem = {
+  name: string
+  href: string
+  icon: React.ComponentType<{ className?: string }>
+  tab?: ParentPortalTabId | PrincipalPortalTabId
 }
 
-function usePortalUser(session: ReturnType<typeof useAuth>['user']) {
+const navByRole: Record<UserRole, PortalNavItem[]> = {
+  admin: [],
+  principal: [
+    { name: 'Overview', href: '/principal-portal', icon: LayoutDashboard, tab: 'overview' },
+    {
+      name: 'Academics',
+      href: '/principal-portal?tab=academics',
+      icon: BookOpen,
+      tab: 'academics',
+    },
+    { name: 'Staff', href: '/principal-portal?tab=staff', icon: Users, tab: 'staff' },
+    { name: 'Finance', href: '/principal-portal?tab=finance', icon: Wallet, tab: 'finance' },
+    { name: 'Notices', href: '/principal-portal?tab=notices', icon: Bell, tab: 'notices' },
+  ],
+  teacher: [{ name: 'My Portal', href: '/teacher-portal', icon: UserCheck }],
+  student: [{ name: 'My Portal', href: '/student-portal', icon: GraduationCap }],
+  parent: [
+    { name: 'My Portal', href: '/parent-portal', icon: UserCircle, tab: 'overview' },
+    { name: 'My Children', href: '/parent-portal?tab=children', icon: Users, tab: 'children' },
+    { name: 'Fees', href: '/parent-portal?tab=fees', icon: CreditCard, tab: 'fees' },
+    {
+      name: 'Attendance',
+      href: '/parent-portal?tab=attendance',
+      icon: CalendarCheck,
+      tab: 'attendance',
+    },
+    { name: 'Transport', href: '/parent-portal?tab=transport', icon: Bus, tab: 'transport' },
+    { name: 'Notices', href: '/parent-portal?tab=notices', icon: Bell, tab: 'notices' },
+    { name: 'My Profile', href: '/parent-portal?tab=profile', icon: User, tab: 'profile' },
+  ],
+}
+
+function usePortalUser(session: ReturnType<typeof useAuth>['user'], _profileVersion = 0) {
+  void _profileVersion
   if (!session) return null
 
   if (session.role === 'teacher') {
@@ -81,10 +134,27 @@ function usePortalUser(session: ReturnType<typeof useAuth>['user']) {
 
   if (session.role === 'parent') {
     const parent = getParentById(session.userId)
+    const photos = loadParentProfilePhotos()
     return {
       name: session.name,
       subtitle: 'Parent / Guardian',
-      avatar: parent?.avatar,
+      avatar: parent
+        ? getParentProfilePhotoUrl(session.userId, photos, parent.avatar)
+        : undefined,
+      initials: session.name
+        .split(' ')
+        .map((n) => n[0])
+        .join('')
+        .slice(0, 2),
+    }
+  }
+
+  if (session.role === 'principal') {
+    const principal = getPrincipalProfile()
+    return {
+      name: session.name,
+      subtitle: principal.title,
+      avatar: principal.avatar,
       initials: session.name
         .split(' ')
         .map((n) => n[0])
@@ -101,6 +171,59 @@ function usePortalUser(session: ReturnType<typeof useAuth>['user']) {
   }
 }
 
+function isNavItemActive(
+  item: PortalNavItem,
+  pathname: string,
+  activeParentTab: ParentPortalTabId,
+  activePrincipalTab: PrincipalPortalTabId,
+) {
+  if (item.tab && pathname.startsWith('/parent-portal')) {
+    return item.tab === activeParentTab
+  }
+  if (item.tab && pathname.startsWith('/principal-portal')) {
+    return item.tab === activePrincipalTab
+  }
+  return pathname === item.href
+}
+
+function PortalNavLinks({
+  nav,
+  collapsed,
+  pathname,
+}: {
+  nav: PortalNavItem[]
+  collapsed: boolean
+  pathname: string
+}) {
+  const searchParams = useSearchParams()
+  const activeParentTab = getParentPortalTabFromSearch(searchParams.get('tab'))
+  const activePrincipalTab = getPrincipalPortalTabFromSearch(searchParams.get('tab'))
+
+  return (
+    <>
+      {nav.map((item) => {
+        const Icon = item.icon
+        const active = isNavItemActive(item, pathname, activeParentTab, activePrincipalTab)
+        return (
+          <Link
+            key={item.href}
+            href={item.href}
+            className={cn(
+              'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
+              active
+                ? 'bg-primary text-primary-foreground'
+                : 'text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
+            )}
+          >
+            <Icon className="h-4 w-4 shrink-0" />
+            {!collapsed && <span>{item.name}</span>}
+          </Link>
+        )
+      })}
+    </>
+  )
+}
+
 export function PortalLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const router = useRouter()
@@ -108,9 +231,16 @@ export function PortalLayout({ children }: { children: React.ReactNode }) {
   const { user: session, logout } = useAuth()
   const [collapsed, setCollapsed] = React.useState(false)
   const [mounted, setMounted] = React.useState(false)
-  const user = usePortalUser(session)
+  const [profileVersion, setProfileVersion] = React.useState(0)
+  const user = usePortalUser(session, profileVersion)
 
   React.useEffect(() => setMounted(true), [])
+
+  React.useEffect(() => {
+    const onProfileUpdate = () => setProfileVersion((v) => v + 1)
+    window.addEventListener('edusync-parent-profile-updated', onProfileUpdate)
+    return () => window.removeEventListener('edusync-parent-profile-updated', onProfileUpdate)
+  }, [])
 
   const handleLogout = async () => {
     await logout()
@@ -126,7 +256,9 @@ export function PortalLayout({ children }: { children: React.ReactNode }) {
         ? 'Student'
         : session?.role === 'parent'
           ? 'Parent'
-          : 'User'
+          : session?.role === 'principal'
+            ? 'Principal'
+            : 'User'
 
   return (
     <div className="min-h-screen">
@@ -151,26 +283,27 @@ export function PortalLayout({ children }: { children: React.ReactNode }) {
           )}
         </div>
 
-        <nav className="flex-1 space-y-1 p-3">
-          {nav.map((item) => {
-            const Icon = item.icon
-            const active = pathname === item.href
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={cn(
-                  'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
-                  active
-                    ? 'bg-primary text-primary-foreground'
-                    : 'text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
-                )}
-              >
-                <Icon className="h-4 w-4 shrink-0" />
-                {!collapsed && <span>{item.name}</span>}
-              </Link>
-            )
-          })}
+        <nav className="flex-1 space-y-1 overflow-y-auto p-3">
+          <React.Suspense
+            fallback={
+              <>
+                {nav.map((item) => {
+                  const Icon = item.icon
+                  return (
+                    <div
+                      key={item.href}
+                      className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-muted-foreground"
+                    >
+                      <Icon className="h-4 w-4 shrink-0" />
+                      {!collapsed && <span>{item.name}</span>}
+                    </div>
+                  )
+                })}
+              </>
+            }
+          >
+            <PortalNavLinks nav={nav} collapsed={collapsed} pathname={pathname} />
+          </React.Suspense>
         </nav>
 
         <div className="border-t border-border p-3 space-y-2">
@@ -205,9 +338,7 @@ export function PortalLayout({ children }: { children: React.ReactNode }) {
         animate={{ marginLeft: collapsed ? 72 : 240 }}
         className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-border bg-background/95 px-6 backdrop-blur"
       >
-        <p className="text-sm text-muted-foreground">
-          Signed in as <span className="font-medium text-foreground">{roleLabel}</span>
-        </p>
+        <SignedInRoleLabel roleLabel={roleLabel} />
         <div className="flex items-center gap-2">
           <Button
             variant="ghost"
@@ -234,6 +365,15 @@ export function PortalLayout({ children }: { children: React.ReactNode }) {
             <DropdownMenuContent align="end">
               <DropdownMenuLabel>{user?.name}</DropdownMenuLabel>
               <DropdownMenuSeparator />
+              {session?.role === 'parent' && (
+                <DropdownMenuItem asChild>
+                  <Link href="/parent-portal?tab=profile" className="cursor-pointer">
+                    <User className="mr-2 h-4 w-4" />
+                    My Profile
+                  </Link>
+                </DropdownMenuItem>
+              )}
+              {session?.role === 'parent' && <DropdownMenuSeparator />}
               <DropdownMenuItem onClick={handleLogout} className="text-destructive">
                 <LogOut className="mr-2 h-4 w-4" />
                 Log out

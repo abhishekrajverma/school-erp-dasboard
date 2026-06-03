@@ -1,6 +1,6 @@
-import { parentsData, studentsData, teachersData } from './erp-data'
+import { parentsData, schoolSettings, studentsData, teachersData } from './erp-data'
 
-export type UserRole = 'admin' | 'teacher' | 'student' | 'parent'
+export type UserRole = 'admin' | 'teacher' | 'student' | 'parent' | 'principal'
 
 export type PortalAccount = {
   email: string
@@ -18,6 +18,13 @@ export const portalAccounts: PortalAccount[] = [
     role: 'admin',
     userId: 'admin',
     name: 'Admin User',
+  },
+  {
+    email: 'principal@school.edu',
+    password: 'principal123',
+    role: 'principal',
+    userId: 'principal',
+    name: schoolSettings.principalName,
   },
   ...teachersData.map((t) => ({
     email: t.email,
@@ -56,6 +63,11 @@ export function authenticatePortalUser(
 
 export const demoLoginHints: Record<UserRole, { email: string; password: string; label: string }> = {
   admin: { email: 'admin@school.edu', password: 'admin123', label: 'School admin' },
+  principal: {
+    email: 'principal@school.edu',
+    password: 'principal123',
+    label: schoolSettings.principalName,
+  },
   teacher: {
     email: 'anita.s@school.edu',
     password: 'teacher123',

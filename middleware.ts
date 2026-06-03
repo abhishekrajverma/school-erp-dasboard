@@ -92,21 +92,28 @@ export function middleware(request: NextRequest) {
     if (role === 'admin' && pathname.startsWith('/parent-portal')) {
       return NextResponse.redirect(new URL('/dashboard', request.url))
     }
+    if (role === 'admin' && pathname.startsWith('/principal-portal')) {
+      return NextResponse.redirect(new URL('/dashboard', request.url))
+    }
 
     const portalRoutes: Record<UserRole, string> = {
       teacher: '/teacher-portal',
       student: '/student-portal',
       parent: '/parent-portal',
+      principal: '/principal-portal',
       admin: '/dashboard',
     }
 
+    const portalPrefixes = [
+      '/teacher-portal',
+      '/student-portal',
+      '/parent-portal',
+      '/principal-portal',
+    ]
+
     if (role && role !== 'admin') {
       const ownPortal = portalRoutes[role]
-      if (
-        pathname.startsWith('/teacher-portal') ||
-        pathname.startsWith('/student-portal') ||
-        pathname.startsWith('/parent-portal')
-      ) {
+      if (portalPrefixes.some((prefix) => pathname.startsWith(prefix))) {
         if (!pathname.startsWith(ownPortal)) {
           return NextResponse.redirect(new URL(getRoleHomePath(role), request.url))
         }

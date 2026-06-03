@@ -239,6 +239,7 @@ export const pricing = [
       'Up to 2,000 students',
       'Everything in Starter',
       'Fees, exams & transport',
+      'Public school website',
       'WhatsApp + mobile app',
       'Payroll & HR module',
       'Advanced analytics',
@@ -256,6 +257,7 @@ export const pricing = [
     features: [
       'Unlimited students',
       'All modules + API access',
+      'Public school website + custom domain',
       'Dedicated infrastructure',
       'Custom domain & branding',
       'SSO & LDAP integration',

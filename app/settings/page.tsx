@@ -4,7 +4,9 @@ import * as React from 'react'
 import { motion } from 'framer-motion'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Save, School, Palette, Shield, Bell, CreditCard, Building2 } from 'lucide-react'
+import { Save, School, Palette, Shield, Bell, CreditCard, Building2, Globe } from 'lucide-react'
+import { SchoolWebsiteAdminPanel } from '@/components/school-website/school-website-admin-panel'
+import { DEFAULT_SCHOOL_WEBSITE_SLUG, getSchoolWebsitePath } from '@/lib/school-website'
 import { DashboardLayout } from '@/components/dashboard/layout'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -57,6 +59,7 @@ export default function SettingsPage() {
 
         <Tabs tabs={[
           { id: 'profile', label: 'School Profile' },
+          { id: 'website', label: 'School Website' },
           { id: 'branding', label: 'Branding' },
           { id: 'roles', label: 'Roles & Permissions' },
           { id: 'notifications', label: 'Notifications' },
@@ -91,6 +94,12 @@ export default function SettingsPage() {
                 </form>
               </CardContent>
             </Card>
+          </motion.div>
+        )}
+
+        {activeTab === 'website' && (
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
+            <SchoolWebsiteAdminPanel />
           </motion.div>
         )}
 
@@ -140,6 +149,15 @@ export default function SettingsPage() {
               <div className="flex justify-between"><span className="text-muted-foreground">Plan</span><span className="font-medium">Enterprise</span></div>
               <div className="flex justify-between"><span className="text-muted-foreground">Schools</span><span>3 campuses</span></div>
               <div className="flex justify-between"><span className="text-muted-foreground">Monthly</span><span>₹49,999</span></div>
+              <div className="mt-4 flex items-center justify-between rounded-lg border border-border p-3">
+                <div className="flex items-center gap-2">
+                  <Globe className="h-4 w-4 text-primary" />
+                  <span>Public school website</span>
+                </div>
+                <a href={getSchoolWebsitePath(DEFAULT_SCHOOL_WEBSITE_SLUG)} className="text-primary hover:underline" target="_blank" rel="noreferrer">
+                  View live site
+                </a>
+              </div>
             </CardContent>
           </Card>
         )}

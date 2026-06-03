@@ -59,6 +59,7 @@ const plans: Record<PlanKey, Plan> = {
       'Exams',
       'Transport',
       'Staff Management',
+      'Public School Website',
       'Advanced Reports',
     ],
   },
@@ -71,6 +72,7 @@ const plans: Record<PlanKey, Plan> = {
     features: [
       'Unlimited Students',
       'All Modules',
+      'Public School Website + Custom Domain',
       'White Label',
       'API Access',
       'Dedicated Infrastructure',
@@ -146,6 +148,7 @@ function GetStartedContent() {
   const schoolSlug = slugify(registration.schoolName || 'demo-school')
   const tenantId = `TEN-${schoolSlug.toUpperCase().slice(0, 8)}-${new Date().getFullYear()}`
   const portalUrl = `https://app.schoolerp.com/tenant/${schoolSlug}`
+  const schoolWebsiteUrl = `/school/${schoolSlug}`
 
   const setField =
     (key: keyof typeof registration) =>
@@ -443,6 +446,15 @@ function GetStartedContent() {
                     <p className="text-sm text-muted-foreground">Portal URL</p>
                     <p className="font-semibold">{portalUrl}</p>
                   </div>
+                  {(selectedPlan === 'professional' || selectedPlan === 'enterprise') && (
+                    <div className="rounded-lg border border-primary/30 bg-primary/5 p-4 md:col-span-2">
+                      <p className="text-sm text-muted-foreground">Public School Website</p>
+                      <p className="font-semibold">{schoolWebsiteUrl}</p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Share fees, announcements, admissions, and contact info with parents and visitors.
+                      </p>
+                    </div>
+                  )}
                   <div className="rounded-lg border border-border p-4 md:col-span-2">
                     <p className="text-sm text-muted-foreground">Admin Credentials</p>
                     <p className="font-semibold">Username: admin@{schoolSlug || 'school'}.edu</p>
