@@ -6,6 +6,7 @@ import {
   MapPin,
   Users,
   BookOpen,
+  Bus,
   FileUp,
   FileSignature,
   Pencil,
@@ -15,7 +16,8 @@ import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { FormCard } from '@/components/admission/form-card'
 import type { AdmissionFormValues } from '@/lib/admission/types'
-import { DOCUMENT_FIELDS, GENDER_OPTIONS, CATEGORY_OPTIONS } from '@/lib/admission/constants'
+import { DOCUMENT_FIELDS, GENDER_OPTIONS, CATEGORY_OPTIONS, TRANSPORT_SHIFT_OPTIONS } from '@/lib/admission/constants'
+import { routesData } from '@/lib/erp-data'
 import type { AdmissionStepId } from '@/lib/admission/constants'
 
 interface ReviewStepProps {
@@ -58,6 +60,8 @@ export function ReviewStep({ form, onEditStep }: ReviewStepProps) {
 
   const genderLabel = GENDER_OPTIONS.find((g) => g.value === data.gender)?.label
   const categoryLabel = CATEGORY_OPTIONS.find((c) => c.value === data.category)?.label
+  const transportRoute = routesData.find((r) => r.id === data.transportRouteId)
+  const transportShiftLabel = TRANSPORT_SHIFT_OPTIONS.find((s) => s.value === data.transportShift)?.label
 
   return (
     <div className="space-y-6">
@@ -98,6 +102,30 @@ export function ReviewStep({ form, onEditStep }: ReviewStepProps) {
           <ReviewRow label="Primary Mobile" value={data.primaryMobile} />
           <ReviewRow label="Alternate Mobile" value={data.alternateMobile} />
           <ReviewRow label="Email" value={data.email} />
+        </dl>
+      </FormCard>
+
+      <FormCard title="Transport Facility" icon={<Bus className="h-5 w-5" />}>
+        <SectionHeader title="" step="address" onEdit={onEditStep} />
+        <dl>
+          <ReviewRow
+            label="Transport Opted"
+            value={data.optsForTransport === 'yes' ? 'Yes' : 'No'}
+          />
+          {data.optsForTransport === 'yes' && (
+            <>
+              <ReviewRow label="Route" value={transportRoute?.routeName} />
+              <ReviewRow label="Pickup Stop" value={data.transportPickupStop} />
+              <ReviewRow label="Pickup Address" value={data.transportPickupAddress} />
+              <ReviewRow label="Shift" value={transportShiftLabel} />
+              {transportRoute && (
+                <ReviewRow
+                  label="Monthly Fare"
+                  value={`₹${transportRoute.fare.toLocaleString('en-IN')}`}
+                />
+              )}
+            </>
+          )}
         </dl>
       </FormCard>
 

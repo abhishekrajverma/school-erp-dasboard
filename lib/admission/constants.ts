@@ -106,6 +106,12 @@ export const INDIAN_STATES = [
   'Puducherry',
 ] as const
 
+export const TRANSPORT_SHIFT_OPTIONS = [
+  { value: 'morning', label: 'Morning only' },
+  { value: 'evening', label: 'Evening only' },
+  { value: 'both', label: 'Morning & Evening' },
+] as const
+
 export const ADMISSION_STEPS = [
   { id: 'personal', label: 'Personal Details', shortLabel: 'Personal' },
   { id: 'address', label: 'Address', shortLabel: 'Address' },

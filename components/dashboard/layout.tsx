@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import { motion } from 'framer-motion'
+import { AdminGuard } from '@/components/auth/admin-guard'
 import { Sidebar } from '@/components/dashboard/sidebar'
 import { Header } from '@/components/dashboard/header'
 import { useIsMobile } from '@/hooks/use-mobile'
@@ -18,7 +19,8 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
   }, [isMobile])
 
   return (
-    <div className="min-h-screen bg-background">
+    <AdminGuard>
+    <div className="min-h-screen">
       <Sidebar
         collapsed={sidebarCollapsed}
         onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
@@ -36,5 +38,6 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
         {children}
       </motion.main>
     </div>
+    </AdminGuard>
   )
 }

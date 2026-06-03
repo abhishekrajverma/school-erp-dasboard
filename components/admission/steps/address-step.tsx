@@ -1,8 +1,9 @@
 'use client'
 
 import type { UseFormReturn } from 'react-hook-form'
-import { MapPin } from 'lucide-react'
+import { MapPin, Bus } from 'lucide-react'
 import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
 import {
   Select,
   SelectContent,
@@ -12,8 +13,10 @@ import {
 } from '@/components/ui/select'
 import { FormField } from '@/components/shared/page-components'
 import { FormCard, FormGrid } from '@/components/admission/form-card'
+import { YesNoField } from '@/components/admission/yes-no-field'
 import type { AdmissionFormValues } from '@/lib/admission/types'
-import { INDIAN_STATES } from '@/lib/admission/constants'
+import { INDIAN_STATES, TRANSPORT_SHIFT_OPTIONS } from '@/lib/admission/constants'
+import { routesData } from '@/lib/erp-data'
 import { formatIndianMobile } from '@/lib/admission/validators'
 
 interface StepProps {
@@ -28,7 +31,20 @@ export function AddressStep({ form }: StepProps) {
     watch,
   } = form
 
+  const optsForTransport = watch('optsForTransport')
+  const selectedRouteId = watch('transportRouteId')
+  const activeRoutes = routesData.filter((r) => r.status === 'active')
+  const selectedRoute = activeRoutes.find((r) => r.id === selectedRouteId)
+
+  const clearTransportFields = () => {
+    setValue('transportRouteId', '', { shouldValidate: true })
+    setValue('transportPickupStop', '', { shouldValidate: true })
+    setValue('transportPickupAddress', '', { shouldValidate: true })
+    setValue('transportShift', undefined, { shouldValidate: true })
+  }
+
   return (
+    <div className="space-y-6">
     <FormCard
       title="Present Address"
       description="Residential address and contact details for correspondence."
@@ -88,5 +104,115 @@ export function AddressStep({ form }: StepProps) {
         </FormField>
       </FormGrid>
     </FormCard>
+
+      <FormCard
+        title="School Transport Facility"
+        description="Opt in if you need school bus transport. Fill pickup details when you select Yes."
+        icon={<Bus className="h-5 w-5" />}
+      >
+        <FormField
+          label="Do you want to opt for school transport?"
+          required
+          error={errors.optsForTransport?.message}
+          className="mb-2"
+        >
+          <YesNoField
+            id="transport-opt"
+            value={optsForTransport}
+            onChange={(v) => {
+              setValue('optsForTransport', v, { shouldValidate: true })
+              if (v === 'no') clearTransportFields()
+            }}
+          />
+        </FormField>
+
+        {optsForTransport === 'yes' && (
+          <div className="mt-4 rounded-xl border border-primary/20 bg-primary/5 p-4">
+            <FormGrid>
+              <FormField
+                label="Transport Route"
+                required
+                error={errors.transportRouteId?.message}
+                className="sm:col-span-2"
+              >
+                <Select
+                  value={selectedRouteId || ''}
+                  onValueChange={(v) => setValue('transportRouteId', v, { shouldValidate: true })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select bus route" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {activeRoutes.map((route) => (
+                      <SelectItem key={route.id} value={route.id}>
+                        {route.routeName} — ₹{route.fare.toLocaleString('en-IN')}/month
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </FormField>
+
+              {selectedRoute && (
+                <div className="sm:col-span-2 rounded-lg border border-border/60 bg-background/80 px-3 py-2.5 text-xs text-muted-foreground">
+                  <span className="font-medium text-foreground">Route info: </span>
+                  {selectedRoute.startPoint} → {selectedRoute.endPoint} · {selectedRoute.distance} ·
+                  Morning {selectedRoute.morningTime} · Evening {selectedRoute.eveningTime}
+                </div>
+              )}
+
+              <FormField
+                label="Pickup Stop / Landmark"
+                required
+                error={errors.transportPickupStop?.message}
+              >
+                <Input
+                  {...register('transportPickupStop')}
+                  placeholder="e.g., Green Park Gate 2"
+                />
+              </FormField>
+
+              <FormField
+                label="Transport Shift"
+                required
+                error={errors.transportShift?.message}
+              >
+                <Select
+                  value={watch('transportShift') || ''}
+                  onValueChange={(v) =>
+                    setValue('transportShift', v as AdmissionFormValues['transportShift'], {
+                      shouldValidate: true,
+                    })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select shift" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {TRANSPORT_SHIFT_OPTIONS.map((shift) => (
+                      <SelectItem key={shift.value} value={shift.value}>
+                        {shift.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </FormField>
+
+              <FormField
+                label="Full Pickup Address"
+                required
+                error={errors.transportPickupAddress?.message}
+                className="sm:col-span-2"
+              >
+                <Textarea
+                  {...register('transportPickupAddress')}
+                  rows={3}
+                  placeholder="House no., street, landmark near pickup point"
+                />
+              </FormField>
+            </FormGrid>
+          </div>
+        )}
+      </FormCard>
+    </div>
   )
 }

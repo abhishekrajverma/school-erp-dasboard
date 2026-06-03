@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next'
 import { Geist, Geist_Mono } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
+import { AppShell } from '@/components/providers/app-shell'
 import { ThemeProvider } from '@/components/theme-provider'
 import { ErpToaster } from '@/components/providers/erp-toaster'
 import './globals.css'
@@ -61,7 +62,7 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          {children}
+          <AppShell>{children}</AppShell>
           <ErpToaster />
         </ThemeProvider>
         {process.env.NODE_ENV === 'production' && <Analytics />}

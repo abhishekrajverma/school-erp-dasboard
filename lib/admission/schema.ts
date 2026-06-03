@@ -104,6 +104,13 @@ const admissionBaseSchema = z.object({
     alternateMobile: optionalMobile,
     email: requiredEmail,
 
+    // Transport facility
+    optsForTransport: z.enum(['yes', 'no']).default('no'),
+    transportRouteId: z.string().optional(),
+    transportPickupStop: z.string().optional(),
+    transportPickupAddress: z.string().optional(),
+    transportShift: z.enum(['morning', 'evening', 'both']).optional(),
+
     // Section 3 — Father
     fatherName: z.string().min(1, "Father's name is required"),
     fatherQualification: z.string().optional(),
@@ -178,7 +185,7 @@ const admissionBaseSchema = z.object({
     declarationDate: z.string(),
 })
 
-function guardianRefine<T extends z.ZodTypeAny>(schema: T) {
+function admissionRefine<T extends z.ZodTypeAny>(schema: T) {
   return schema.superRefine(
     (data: z.infer<typeof admissionBaseSchema>, ctx: z.RefinementCtx) => {
       if (data.livesWithGuardian === 'yes') {
@@ -197,11 +204,42 @@ function guardianRefine<T extends z.ZodTypeAny>(schema: T) {
           })
         }
       }
+
+      if (data.optsForTransport === 'yes') {
+        if (!data.transportRouteId?.trim()) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: 'Please select a transport route',
+            path: ['transportRouteId'],
+          })
+        }
+        if (!data.transportPickupStop?.trim()) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: 'Pickup stop / landmark is required',
+            path: ['transportPickupStop'],
+          })
+        }
+        if (!data.transportPickupAddress?.trim()) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: 'Pickup address is required',
+            path: ['transportPickupAddress'],
+          })
+        }
+        if (!data.transportShift) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: 'Please select transport shift',
+            path: ['transportShift'],
+          })
+        }
+      }
     },
   )
 }
 
-export const admissionFormSchema = guardianRefine(admissionBaseSchema)
+export const admissionFormSchema = admissionRefine(admissionBaseSchema)
 
 /** Draft schema — relaxed declaration for auto-save */
 export const admissionDraftSchema = admissionBaseSchema.partial().extend({
@@ -234,6 +272,12 @@ export const admissionDefaultValues: z.input<typeof admissionBaseSchema> = {
   primaryMobile: '',
   alternateMobile: '',
   email: '',
+
+  optsForTransport: 'no',
+  transportRouteId: '',
+  transportPickupStop: '',
+  transportPickupAddress: '',
+  transportShift: undefined,
 
   fatherName: '',
   fatherQualification: '',
@@ -323,6 +367,11 @@ export const STEP_FIELDS = {
     'primaryMobile',
     'alternateMobile',
     'email',
+    'optsForTransport',
+    'transportRouteId',
+    'transportPickupStop',
+    'transportPickupAddress',
+    'transportShift',
   ],
   parents: [
     'fatherName',

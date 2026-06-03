@@ -226,8 +226,122 @@
   animation: landing-shimmer 4s linear infinite;
 }
 
+/* Accent underline sweep on hero rotating word */
+@keyframes landing-hero-accent-sweep {
+  0% {
+    opacity: 0.4;
+    transform: scaleX(0.35);
+  }
+  50% {
+    opacity: 1;
+    transform: scaleX(1);
+  }
+  100% {
+    opacity: 0.5;
+    transform: scaleX(0.85);
+  }
+}
+
+.landing-hero-accent-line {
+  animation: landing-hero-accent-sweep 3s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landing-hero-accent-line {
+    animation: none;
+    opacity: 0.7;
+    transform: scaleX(1);
+  }
+}
+
 .landing-marquee-track {
   animation: landing-marquee 40s linear infinite;
+}
+
+/* Light theme — modern mesh background */
+@keyframes light-aurora-drift {
+  0%, 100% {
+    transform: translate(0, 0) scale(1);
+    opacity: 0.55;
+  }
+  50% {
+    transform: translate(4%, -3%) scale(1.06);
+    opacity: 0.85;
+  }
+}
+
+@keyframes light-ring-float {
+  0%, 100% {
+    transform: translateY(0) rotate(0deg);
+    opacity: 0.35;
+  }
+  50% {
+    transform: translateY(-14px) rotate(6deg);
+    opacity: 0.6;
+  }
+}
+
+.light-mesh-base {
+  background:
+    radial-gradient(ellipse 90% 55% at 8% -5%, oklch(0.82 0.1 264 / 0.45), transparent 55%),
+    radial-gradient(ellipse 70% 45% at 95% 8%, oklch(0.9 0.08 290 / 0.38), transparent 50%),
+    radial-gradient(ellipse 65% 50% at 55% 105%, oklch(0.88 0.09 220 / 0.32), transparent 52%),
+    radial-gradient(ellipse 40% 35% at 50% 40%, oklch(0.95 0.04 264 / 0.2), transparent 60%),
+    var(--background);
+}
+
+.light-dot-pattern {
+  background-image: radial-gradient(
+    circle at center,
+    oklch(0.55 0.2 264 / 0.14) 1px,
+    transparent 1px
+  );
+  background-size: 22px 22px;
+  mask-image: radial-gradient(ellipse 95% 85% at 50% 25%, black 15%, transparent 72%);
+}
+
+.light-aurora-sheet {
+  border-radius: 50%;
+  filter: blur(60px);
+  animation: light-aurora-drift 14s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.light-aurora-sheet-a {
+  background: conic-gradient(
+    from 200deg at 50% 50%,
+    oklch(0.75 0.16 264 / 0.35),
+    oklch(0.88 0.1 290 / 0.25),
+    oklch(0.8 0.12 220 / 0.2),
+    oklch(0.75 0.16 264 / 0.35)
+  );
+}
+
+.light-aurora-sheet-b {
+  background: conic-gradient(
+    from 20deg at 50% 50%,
+    oklch(0.85 0.1 290 / 0.3),
+    oklch(0.78 0.14 264 / 0.28),
+    oklch(0.9 0.06 220 / 0.22),
+    oklch(0.85 0.1 290 / 0.3)
+  );
+  animation-delay: 5s;
+}
+
+.light-ring {
+  animation: light-ring-float 9s ease-in-out infinite;
+}
+
+.light-ring-b {
+  animation-delay: 3s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .light-aurora-sheet,
+  .light-ring,
+  .landing-gradient-orb {
+    animation: none;
+  }
 }
 
 .landing-grid-pattern {

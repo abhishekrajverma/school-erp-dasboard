@@ -182,6 +182,24 @@ export const leaveSchema = z.object({
 
 export type LeaveFormData = z.infer<typeof leaveSchema>
 
+// Teacher self-service leave (no employee picker)
+export const teacherSelfLeaveSchema = z.object({
+  leaveType: z.enum(['casual', 'sick', 'earned', 'maternity', 'paternity', 'unpaid']),
+  startDate: z.string().min(1, 'Start date is required'),
+  endDate: z.string().min(1, 'End date is required'),
+  reason: z.string().min(10, 'Reason must be at least 10 characters'),
+})
+
+export type TeacherSelfLeaveFormData = z.infer<typeof teacherSelfLeaveSchema>
+
+export const teacherProfileUpdateSchema = z.object({
+  phone: z.string().min(10, 'Enter a valid phone number'),
+  emergencyContact: z.string().min(10, 'Emergency contact is required'),
+  address: z.string().min(5, 'Address is required'),
+})
+
+export type TeacherProfileUpdateFormData = z.infer<typeof teacherProfileUpdateSchema>
+
 // Exam Schema
 export const examSchema = z.object({
   examName: z.string().min(1, 'Exam name is required'),

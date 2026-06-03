@@ -93,7 +93,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
         initial={false}
         animate={{ width: collapsed ? 72 : 260 }}
         transition={{ duration: 0.2, ease: 'easeInOut' }}
-        className="fixed left-0 top-0 z-40 flex h-screen min-h-0 flex-col overflow-hidden border-r border-border bg-sidebar"
+        className="fixed left-0 top-0 z-40 flex h-screen min-h-0 flex-col overflow-hidden border-r border-border/80 bg-sidebar/90 backdrop-blur-xl dark:bg-sidebar/95"
       >
         {/* Logo */}
         <div className="flex h-16 shrink-0 items-center justify-between border-b border-border px-4">

@@ -193,13 +193,7 @@ function GetStartedContent() {
   )
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
-        <div className="absolute -left-24 top-0 h-80 w-80 rounded-full bg-primary/20 blur-3xl" />
-        <div className="absolute right-0 top-24 h-72 w-72 rounded-full bg-chart-2/15 blur-3xl" />
-        <div className="absolute bottom-0 left-1/3 h-72 w-72 rounded-full bg-chart-4/15 blur-3xl" />
-      </div>
-
+    <div className="relative min-h-screen">
       <header className="sticky top-0 z-20 border-b border-border/60 bg-background/85 backdrop-blur-xl">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 md:px-6">
           <div className="flex items-center gap-2">
@@ -627,7 +621,7 @@ function GetStartedContent() {
 
 export default function GetStartedPage() {
   return (
-    <React.Suspense fallback={<div className="min-h-screen bg-background" />}>
+    <React.Suspense fallback={<div className="min-h-screen" />}>
       <GetStartedContent />
     </React.Suspense>
   )

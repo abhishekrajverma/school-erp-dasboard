@@ -45,6 +45,8 @@ import {
   CommandList,
 } from '@/components/ui/command'
 import { schools, currentSchool } from '@/lib/data'
+import { getSession, markLoggedOut } from '@/lib/auth'
+import { useRouter } from 'next/navigation'
 
 interface HeaderProps {
   sidebarCollapsed: boolean
@@ -52,14 +54,21 @@ interface HeaderProps {
 }
 
 export function Header({ sidebarCollapsed, onSidebarToggle }: HeaderProps) {
+  const router = useRouter()
   const { theme, setTheme } = useTheme()
   const [mounted, setMounted] = React.useState(false)
   const [schoolOpen, setSchoolOpen] = React.useState(false)
   const [selectedSchool, setSelectedSchool] = React.useState(currentSchool)
+  const session = mounted ? getSession() : null
 
   React.useEffect(() => {
     setMounted(true)
   }, [])
+
+  const handleLogout = () => {
+    markLoggedOut()
+    router.push('/login')
+  }
 
   return (
     <motion.header
@@ -218,8 +227,10 @@ export function Header({ sidebarCollapsed, onSidebarToggle }: HeaderProps) {
                 <AvatarFallback>AD</AvatarFallback>
               </Avatar>
               <div className="hidden md:flex flex-col items-start">
-                <span className="text-sm font-medium">Admin User</span>
-                <span className="text-[10px] text-muted-foreground">Super Admin</span>
+                <span className="text-sm font-medium">{session?.name ?? 'Admin User'}</span>
+                <span className="text-[10px] text-muted-foreground capitalize">
+                  {session?.role ?? 'admin'}
+                </span>
               </div>
               <ChevronDown className="h-3 w-3 text-muted-foreground hidden md:block" />
             </Button>
@@ -236,7 +247,10 @@ export function Header({ sidebarCollapsed, onSidebarToggle }: HeaderProps) {
               Settings
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem className="text-destructive focus:text-destructive">
+            <DropdownMenuItem
+              className="text-destructive focus:text-destructive"
+              onClick={handleLogout}
+            >
               <LogOut className="mr-2 h-4 w-4" />
               Log out
             </DropdownMenuItem>

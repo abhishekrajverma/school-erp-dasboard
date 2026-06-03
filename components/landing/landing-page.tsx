@@ -13,7 +13,7 @@ import { TestimonialsSection } from './testimonials-section'
 
 export function LandingPage() {
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    <div className="min-h-screen text-foreground">
       <LandingNavbar />
       <main>
         <HeroSection />

@@ -28,7 +28,18 @@ export const brand = {
 export const hero = {
   badge: 'Now with AI Insights & WhatsApp Alerts',
   headline: 'Run Your Entire School From One Powerful ERP Platform',
-  headlineAccent: 'Powerful ERP Platform',
+  headlineRotations: [
+    'Powerful ERP Platform',
+    'Smart Dashboard',
+    'Unified Cloud Hub',
+    'AI Command Center',
+  ] as const,
+  loginHeadlineRotations: [
+    `${brand.name} ERP`,
+    'your dashboard',
+    'one secure hub',
+    'smart analytics',
+  ] as const,
   subheadline:
     'Admissions, attendance, fees, exams, transport, payroll, parent apps, and real-time analytics — all on secure cloud infrastructure built for CBSE, ICSE, State Board & international schools.',
   primaryCta: 'Start 14-Day Free Trial',

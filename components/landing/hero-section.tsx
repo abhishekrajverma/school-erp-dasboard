@@ -6,8 +6,8 @@ import { ArrowRight, Play, Sparkles } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { hero, trustBadges } from '@/lib/landing/content'
-import { AnimatedBackground } from './animated-background'
 import { DashboardMockup } from './dashboard-mockup'
+import { RotatingHeroText } from './rotating-hero-text'
 
 const container = {
   hidden: { opacity: 0 },
@@ -25,8 +25,6 @@ const item = {
 export function HeroSection() {
   return (
     <section className="relative min-h-[92vh] overflow-hidden pt-16">
-      <AnimatedBackground />
-
       <div className="relative mx-auto grid max-w-7xl gap-12 px-4 pb-20 pt-12 md:px-6 lg:grid-cols-2 lg:items-center lg:gap-16 lg:pt-20">
         <motion.div variants={container} initial="hidden" animate="show" className="space-y-7">
           <motion.div variants={item}>
@@ -41,10 +39,13 @@ export function HeroSection() {
 
           <motion.h1
             variants={item}
-            className="text-4xl font-bold leading-[1.1] tracking-tight sm:text-5xl lg:text-6xl"
+            className="text-4xl font-bold leading-[1.12] tracking-tight sm:text-5xl lg:text-6xl"
           >
-            Run Your Entire School From One{' '}
-            <span className="landing-shimmer-text">{hero.headlineAccent}</span>
+            <span className="block sm:inline">Run Your Entire School From One</span>{' '}
+            <RotatingHeroText
+              words={hero.headlineRotations}
+              className="mt-1 block sm:mt-0 sm:inline-block"
+            />
           </motion.h1>
 
           <motion.p variants={item} className="max-w-xl text-base leading-relaxed text-muted-foreground md:text-lg">

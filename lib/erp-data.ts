@@ -112,11 +112,36 @@ export const bookIssuesData = [
 ]
 
 // HR Leave Requests
-export const leaveRequestsData = [
-  { id: '1', employeeId: '4', employeeName: 'Ms. Deepa Nair', department: 'History', leaveType: 'sick', startDate: '2024-06-20', endDate: '2024-06-25', days: 6, reason: 'Medical treatment and recovery from surgery', status: 'approved', appliedOn: '2024-06-18', approvedBy: 'Principal', approvedOn: '2024-06-19' },
-  { id: '2', employeeId: '2', employeeName: 'Mrs. Anita Singh', department: 'Mathematics', leaveType: 'casual', startDate: '2024-07-01', endDate: '2024-07-02', days: 2, reason: 'Personal work - attending family function', status: 'pending', appliedOn: '2024-06-25', approvedBy: null, approvedOn: null },
-  { id: '3', employeeId: '3', employeeName: 'Mr. Vikram Rao', department: 'English', leaveType: 'earned', startDate: '2024-07-15', endDate: '2024-07-25', days: 11, reason: 'Annual vacation with family', status: 'pending', appliedOn: '2024-06-28', approvedBy: null, approvedOn: null },
-  { id: '4', employeeId: '5', employeeName: 'Mr. Suresh Menon', department: 'Science', leaveType: 'casual', startDate: '2024-06-10', endDate: '2024-06-10', days: 1, reason: 'Passport renewal appointment', status: 'approved', appliedOn: '2024-06-08', approvedBy: 'Vice Principal', approvedOn: '2024-06-09' },
+export type LeaveProofDocument = {
+  name: string
+  size: number
+  type: string
+  lastModified?: number
+  previewUrl?: string
+}
+
+export type LeaveRequest = {
+  id: string
+  employeeId: string
+  employeeName: string
+  department: string
+  leaveType: string
+  startDate: string
+  endDate: string
+  days: number
+  reason: string
+  status: string
+  appliedOn: string
+  approvedBy: string | null
+  approvedOn: string | null
+  proofDocument: LeaveProofDocument | null
+}
+
+export const leaveRequestsData: LeaveRequest[] = [
+  { id: '1', employeeId: '4', employeeName: 'Ms. Deepa Nair', department: 'History', leaveType: 'sick', startDate: '2024-06-20', endDate: '2024-06-25', days: 6, reason: 'Medical treatment and recovery from surgery', status: 'approved', appliedOn: '2024-06-18', approvedBy: 'Principal', approvedOn: '2024-06-19', proofDocument: { name: 'medical-certificate.pdf', size: 524288, type: 'application/pdf' } },
+  { id: '2', employeeId: '2', employeeName: 'Mrs. Anita Singh', department: 'Mathematics', leaveType: 'casual', startDate: '2024-07-01', endDate: '2024-07-02', days: 2, reason: 'Personal work - attending family function', status: 'pending', appliedOn: '2024-06-25', approvedBy: null, approvedOn: null, proofDocument: null },
+  { id: '3', employeeId: '3', employeeName: 'Mr. Vikram Rao', department: 'English', leaveType: 'earned', startDate: '2024-07-15', endDate: '2024-07-25', days: 11, reason: 'Annual vacation with family', status: 'pending', appliedOn: '2024-06-28', approvedBy: null, approvedOn: null, proofDocument: null },
+  { id: '4', employeeId: '5', employeeName: 'Mr. Suresh Menon', department: 'Science', leaveType: 'casual', startDate: '2024-06-10', endDate: '2024-06-10', days: 1, reason: 'Passport renewal appointment', status: 'approved', appliedOn: '2024-06-08', approvedBy: 'Vice Principal', approvedOn: '2024-06-09', proofDocument: { name: 'appointment-slip.pdf', size: 186240, type: 'application/pdf' } },
 ]
 
 // Exams Data
