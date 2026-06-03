@@ -3,8 +3,9 @@
 import * as React from 'react'
 import { useRouter } from 'next/navigation'
 import { Loader2 } from 'lucide-react'
-import { getRoleHomePath, getSession } from '@/lib/auth'
+import { getRoleHomePath } from '@/lib/auth/types'
 import type { UserRole } from '@/lib/portal-users'
+import { useAuth } from '@/components/providers/auth-provider'
 
 export function PortalGuard({
   allowedRoles,
@@ -14,22 +15,20 @@ export function PortalGuard({
   children: React.ReactNode
 }) {
   const router = useRouter()
-  const [ready, setReady] = React.useState(false)
+  const { user, isLoading, isAuthenticated } = useAuth()
 
   React.useEffect(() => {
-    const session = getSession()
-    if (!session) {
+    if (isLoading) return
+    if (!isAuthenticated || !user) {
       router.replace('/login')
       return
     }
-    if (!allowedRoles.includes(session.role)) {
-      router.replace(getRoleHomePath(session.role))
-      return
+    if (!allowedRoles.includes(user.role)) {
+      router.replace(getRoleHomePath(user.role))
     }
-    setReady(true)
-  }, [allowedRoles, router])
+  }, [allowedRoles, isLoading, isAuthenticated, user, router])
 
-  if (!ready) {
+  if (isLoading || !user || !allowedRoles.includes(user.role)) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />

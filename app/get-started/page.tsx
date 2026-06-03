@@ -18,7 +18,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
-import { markLoggedIn } from '@/lib/auth'
+import { useAuth } from '@/components/providers/auth-provider'
 
 type PlanKey = 'starter' | 'professional' | 'enterprise'
 type Billing = 'monthly' | 'quarterly' | 'yearly'
@@ -104,7 +104,13 @@ function slugify(name: string) {
 
 function GetStartedContent() {
   const router = useRouter()
+  const { login } = useAuth()
   const searchParams = useSearchParams()
+  const openDashboard = async () => {
+    await login({ email: 'admin@school.edu', password: 'admin123' })
+    router.push('/dashboard')
+  }
+
   const paramPlan = (searchParams.get('plan') || 'professional') as PlanKey
   const selectedPlan: PlanKey = paramPlan in plans ? paramPlan : 'professional'
 
@@ -445,12 +451,7 @@ function GetStartedContent() {
                 </div>
 
                 <div className="flex flex-wrap gap-3">
-                  <Button
-                    onClick={() => {
-                      markLoggedIn()
-                      router.push('/dashboard')
-                    }}
-                  >
+                  <Button onClick={() => void openDashboard()}>
                     Go To Dashboard
                   </Button>
                   <Button variant="outline">Download Invoice</Button>
@@ -529,12 +530,7 @@ function GetStartedContent() {
                       Next Step
                     </Button>
                   ) : (
-                    <Button
-                      onClick={() => {
-                        markLoggedIn()
-                        router.push('/dashboard')
-                      }}
-                    >
+                    <Button onClick={() => void openDashboard()}>
                       Finish & Open Dashboard
                     </Button>
                   )}

@@ -24,8 +24,9 @@ import { Label } from '@/components/ui/label'
 import { FadeUpLine, StaggeredWords, TypewriterText } from '@/components/auth/login-text-animations'
 import { RotatingText } from '@/components/shared/rotating-text'
 import { brand, hero } from '@/lib/landing/content'
-import { getRoleHomePath, getSession, isAuthenticated, login } from '@/lib/auth'
-import { authenticatePortalUser, demoLoginHints, type UserRole } from '@/lib/portal-users'
+import { getRoleHomePath } from '@/lib/auth'
+import { demoLoginHints, type UserRole } from '@/lib/portal-users'
+import { useAuth } from '@/components/providers/auth-provider'
 import { cn } from '@/lib/utils'
 
 const LOGIN_DESCRIPTION =
@@ -67,6 +68,7 @@ const highlights = [
 
 export default function LoginPage() {
   const router = useRouter()
+  const { login, isAuthenticated, user, isLoading } = useAuth()
   const [role, setRole] = React.useState<UserRole>('teacher')
   const [email, setEmail] = React.useState(demoLoginHints.teacher.email)
   const [password, setPassword] = React.useState(demoLoginHints.teacher.password)
@@ -76,11 +78,11 @@ export default function LoginPage() {
   const [focusedField, setFocusedField] = React.useState<'email' | 'password' | null>(null)
 
   React.useEffect(() => {
-    const session = getSession()
-    if (isAuthenticated() && session) {
-      router.replace(getRoleHomePath(session.role))
+    if (isLoading) return
+    if (isAuthenticated && user) {
+      router.replace(getRoleHomePath(user.role))
     }
-  }, [router])
+  }, [router, isAuthenticated, user, isLoading])
 
   const handleRoleChange = (nextRole: UserRole) => {
     setRole(nextRole)
@@ -96,22 +98,15 @@ export default function LoginPage() {
 
     setIsSubmitting(true)
     setLoginError(null)
-    await new Promise((resolve) => setTimeout(resolve, 600))
 
-    const account = authenticatePortalUser(email, password)
-    if (!account) {
+    try {
+      const account = await login({ email: email.trim(), password })
+      router.push(getRoleHomePath(account.role))
+    } catch {
       setLoginError('Invalid email or password. Use the demo credentials below.')
+    } finally {
       setIsSubmitting(false)
-      return
     }
-
-    login({
-      role: account.role,
-      userId: account.userId,
-      name: account.name,
-      email: account.email,
-    })
-    router.push(getRoleHomePath(account.role))
   }
 
   return (

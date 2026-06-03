@@ -45,7 +45,7 @@ import {
   CommandList,
 } from '@/components/ui/command'
 import { schools, currentSchool } from '@/lib/data'
-import { getSession, markLoggedOut } from '@/lib/auth'
+import { useAuth } from '@/components/providers/auth-provider'
 import { useRouter } from 'next/navigation'
 
 interface HeaderProps {
@@ -56,17 +56,17 @@ interface HeaderProps {
 export function Header({ sidebarCollapsed, onSidebarToggle }: HeaderProps) {
   const router = useRouter()
   const { theme, setTheme } = useTheme()
+  const { user: session, logout } = useAuth()
   const [mounted, setMounted] = React.useState(false)
   const [schoolOpen, setSchoolOpen] = React.useState(false)
   const [selectedSchool, setSelectedSchool] = React.useState(currentSchool)
-  const session = mounted ? getSession() : null
 
   React.useEffect(() => {
     setMounted(true)
   }, [])
 
-  const handleLogout = () => {
-    markLoggedOut()
+  const handleLogout = async () => {
+    await logout()
     router.push('/login')
   }
 

@@ -28,7 +28,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { getSession, markLoggedOut } from '@/lib/auth'
+import { useAuth } from '@/components/providers/auth-provider'
 import type { UserRole } from '@/lib/portal-users'
 import { getTeacherById } from '@/lib/teacher-portal'
 import { getStudentById } from '@/lib/student-portal'
@@ -45,8 +45,7 @@ const navByRole: Record<
   parent: [{ name: 'My Portal', href: '/parent-portal', icon: UserCircle }],
 }
 
-function usePortalUser() {
-  const session = getSession()
+function usePortalUser(session: ReturnType<typeof useAuth>['user']) {
   if (!session) return null
 
   if (session.role === 'teacher') {
@@ -106,15 +105,15 @@ export function PortalLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const router = useRouter()
   const { theme, setTheme } = useTheme()
+  const { user: session, logout } = useAuth()
   const [collapsed, setCollapsed] = React.useState(false)
   const [mounted, setMounted] = React.useState(false)
-  const session = getSession()
-  const user = usePortalUser()
+  const user = usePortalUser(session)
 
   React.useEffect(() => setMounted(true), [])
 
-  const handleLogout = () => {
-    markLoggedOut()
+  const handleLogout = async () => {
+    await logout()
     router.push('/login')
   }
 
