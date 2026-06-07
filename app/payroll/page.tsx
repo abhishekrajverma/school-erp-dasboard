@@ -18,28 +18,37 @@ import { DataTable, StatusBadge, ActionMenu } from '@/components/shared/data-tab
 import { SlideOver } from '@/components/shared/slide-over'
 import { ConfirmDialog } from '@/components/shared/confirm-dialog'
 import { PageHeader, StatCard, Tabs, FormSection, FormField } from '@/components/shared/page-components'
-import { payrollRecordsData, salaryDistribution, teachersData } from '@/lib/erp-data'
+import { ApiPageLoading, ApiPageError } from '@/components/shared/api-page-state'
+import type { PayrollRecordDto } from '@/lib/api/types/resources'
 import { payrollSchema, type PayrollFormData } from '@/lib/schemas'
 import { formatCurrency } from '@/lib/format'
 import { exportToCsv } from '@/lib/export'
+import { usePayroll, useTeachers, useDashboard } from '@/hooks/api'
+import { isApiError } from '@/lib/api/interceptors/errors'
 import { useToast } from '@/hooks/use-toast'
 import { enrichPieData } from '@/lib/chart-colors'
 import { PieChartTooltip, PieChartLegend, pieActiveShape } from '@/components/charts/pie-chart-tooltip'
 
-type PayrollRecord = (typeof payrollRecordsData)[0]
-
-const monthlyPayroll = [
-  { month: 'Jan', expense: 4100000 },
-  { month: 'Feb', expense: 4150000 },
-  { month: 'Mar', expense: 4200000 },
-  { month: 'Apr', expense: 4180000 },
-  { month: 'May', expense: 4220000 },
-  { month: 'Jun', expense: 4250000 },
-]
+type PayrollRecord = PayrollRecordDto
 
 export default function PayrollPage() {
   const { toast } = useToast()
-  const [records, setRecords] = React.useState(payrollRecordsData)
+  const { data, isLoading, isError, error, refetch } = usePayroll({ page: 1, pageSize: 100 })
+  const { data: teachersData } = useTeachers({ page: 1, pageSize: 100 })
+  const { data: dashboardData } = useDashboard()
+  const records = data?.items ?? []
+  const teachers = teachersData?.items ?? []
+  const monthlyPayroll = (dashboardData?.monthlyFeeCollection ?? []).map((m) => ({
+    month: m.month,
+    expense: m.collected,
+  }))
+  const salaryDistribution = React.useMemo(() => {
+    const byDept = new Map<string, number>()
+    for (const r of records) {
+      byDept.set(r.department, (byDept.get(r.department) ?? 0) + r.netSalary)
+    }
+    return [...byDept.entries()].map(([department, amount]) => ({ department, amount }))
+  }, [records])
   const [activeTab, setActiveTab] = React.useState('all')
   const [showAdd, setShowAdd] = React.useState(false)
   const [showEdit, setShowEdit] = React.useState(false)
@@ -67,7 +76,7 @@ export default function PayrollPage() {
   const paidSalary = records.filter((r) => r.status === 'paid').reduce((a, r) => a + r.netSalary, 0)
 
   const buildRecord = (data: PayrollFormData, existing?: PayrollRecord): PayrollRecord => {
-    const teacher = teachersData.find((t) => t.id === data.employeeId)
+    const teacher = teachers.find((t) => t.id === data.employeeId)
     const gross = data.basicSalary + Object.values(data.allowances).reduce((a, b) => a + b, 0) + data.bonus
     const totalDeductions = Object.values(data.deductions).reduce((a, b) => a + b, 0)
     return {
@@ -97,33 +106,27 @@ export default function PayrollPage() {
     }
   }
 
-  const handleAdd = (data: PayrollFormData) => {
-    setRecords([...records, buildRecord(data)])
+  const handleAdd = (_data: PayrollFormData) => {
+    toast({ title: 'Payroll write API is not available on the backend yet' })
     setShowAdd(false)
     form.reset()
-    toast({ title: 'Payroll record created' })
   }
 
-  const handleEdit = (data: PayrollFormData) => {
-    if (!selected) return
-    setRecords(records.map((r) => (r.id === selected.id ? buildRecord(data, selected) : r)))
+  const handleEdit = (_data: PayrollFormData) => {
+    toast({ title: 'Payroll write API is not available on the backend yet' })
     setShowEdit(false)
     setSelected(null)
     form.reset()
-    toast({ title: 'Payroll updated' })
   }
 
   const handleDelete = () => {
-    if (!selected) return
-    setRecords(records.filter((r) => r.id !== selected.id))
+    toast({ title: 'Payroll delete API is not available on the backend yet', variant: 'destructive' })
     setShowDelete(false)
     setSelected(null)
-    toast({ title: 'Record deleted', variant: 'destructive' })
   }
 
-  const markPaid = (record: PayrollRecord) => {
-    setRecords(records.map((r) => r.id === record.id ? { ...r, status: 'paid' as const, paymentDate: new Date().toISOString().split('T')[0] } : r))
-    toast({ title: 'Salary processed', description: `Paid ${formatCurrency(record.netSalary)} to ${record.employeeName}` })
+  const markPaid = (_record: PayrollRecord) => {
+    toast({ title: 'Payroll payment API is not available on the backend yet' })
   }
 
   const openEdit = (record: PayrollRecord) => {
@@ -182,7 +185,7 @@ export default function PayrollPage() {
         <FormField label="Employee" required className="sm:col-span-2">
           <Select value={form.watch('employeeId')} onValueChange={(v) => form.setValue('employeeId', v)}>
             <SelectTrigger><SelectValue placeholder="Select employee" /></SelectTrigger>
-            <SelectContent>{teachersData.map((t) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}</SelectContent>
+            <SelectContent>{teachers.map((t) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}</SelectContent>
           </Select>
         </FormField>
         <FormField label="Month"><Input {...form.register('month')} /></FormField>
@@ -202,6 +205,16 @@ export default function PayrollPage() {
       </FormSection>
     </div>
   )
+
+  if (isLoading) return <ApiPageLoading />
+  if (isError) {
+    return (
+      <ApiPageError
+        message={isApiError(error) ? error.message : 'Failed to load payroll from EduSync.'}
+        onRetry={() => refetch()}
+      />
+    )
+  }
 
   return (
     <DashboardLayout>

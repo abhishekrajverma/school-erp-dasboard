@@ -14,13 +14,16 @@ import { DataTable, ActionMenu } from '@/components/shared/data-table'
 import { SlideOver } from '@/components/shared/slide-over'
 import { ConfirmDialog } from '@/components/shared/confirm-dialog'
 import { PageHeader, StatCard, FormSection, FormField } from '@/components/shared/page-components'
-import { notificationsData } from '@/lib/erp-data'
+import { ApiPageLoading, ApiPageError } from '@/components/shared/api-page-state'
 import { notificationSchema, type NotificationFormData } from '@/lib/schemas'
 import { exportToCsv } from '@/lib/export'
-import { useToast } from '@/hooks/use-toast'
+import type { NotificationDto } from '@/lib/api/types/resources'
+import { useNotifications } from '@/hooks/api'
+import { isApiError } from '@/lib/api/interceptors/errors'
+import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 
-type Notification = (typeof notificationsData)[0]
+type Notification = NotificationDto
 
 const typeStyles: Record<string, string> = {
   info: 'bg-primary/10 text-primary border-primary/20',
@@ -30,8 +33,9 @@ const typeStyles: Record<string, string> = {
 }
 
 export default function NotificationsPage() {
-  const { toast } = useToast()
-  const [items, setItems] = React.useState(notificationsData)
+  const { data, isLoading, isError, error, refetch } = useNotifications({ page: 1, pageSize: 100 })
+  const items = data?.items ?? []
+
   const [showForm, setShowForm] = React.useState(false)
   const [showDelete, setShowDelete] = React.useState(false)
   const [selected, setSelected] = React.useState<Notification | null>(null)
@@ -48,24 +52,31 @@ export default function NotificationsPage() {
     { accessorKey: 'sentAt', header: 'Sent' },
     { accessorKey: 'readCount', header: 'Read', cell: ({ row }) => <span>{row.original.readCount}/{row.original.totalRecipients}</span> },
     { id: 'actions', cell: ({ row }) => <ActionMenu actions={[
-      { label: 'View Stats', onClick: () => toast({ title: row.original.title, description: `${row.original.readCount} reads` }) },
-      { label: 'Resend', onClick: () => toast({ title: 'Notification resent' }) },
+      { label: 'View Stats', onClick: () => toast.info(row.original.title, { description: `${row.original.readCount} reads` }) },
+      { label: 'Resend', onClick: () => toast.info('Notification resent') },
       { label: 'Delete', onClick: () => { setSelected(row.original); setShowDelete(true) }, destructive: true },
     ]} /> },
   ]
 
-  const handleSend = (data: NotificationFormData) => {
-    setItems([{
-      id: String(items.length + 1),
-      ...data,
-      sentAt: new Date().toISOString().split('T')[0],
-      readCount: 0,
-      totalRecipients: data.targetAudience === 'all' ? 3200 : 2847,
-    }, ...items])
+  const handleSend = () => {
+    toast.info('Notification send API is not available on the backend yet')
     setShowForm(false)
     form.reset()
-    toast({ title: 'Notification sent', description: data.title })
   }
+
+  if (isLoading) return <ApiPageLoading rows={3} />
+  if (isError) {
+    return (
+      <ApiPageError
+        message={isApiError(error) ? error.message : 'Failed to load notifications from EduSync.'}
+        onRetry={() => refetch()}
+      />
+    )
+  }
+
+  const avgReadRate = items.length
+    ? Math.round(items.reduce((a, n) => a + (n.totalRecipients ? n.readCount / n.totalRecipients : 0), 0) / items.length * 100)
+    : 0
 
   return (
     <DashboardLayout>
@@ -77,7 +88,7 @@ export default function NotificationsPage() {
 
         <div className="grid gap-4 sm:grid-cols-3">
           <StatCard title="Total Sent" value={items.length} icon={Send} />
-          <StatCard title="Avg. Read Rate" value={`${Math.round(items.reduce((a, n) => a + n.readCount / n.totalRecipients, 0) / items.length * 100)}%`} icon={Eye} />
+          <StatCard title="Avg. Read Rate" value={`${avgReadRate}%`} icon={Eye} />
           <StatCard title="This Month" value={items.length} icon={Bell} />
         </div>
 
@@ -93,7 +104,7 @@ export default function NotificationsPage() {
         </FormSection>
       </SlideOver>
 
-      <ConfirmDialog open={showDelete} onClose={() => setShowDelete(false)} onConfirm={() => { if (selected) { setItems(items.filter((n) => n.id !== selected.id)); setShowDelete(false) } }} title="Delete" description="Remove this notification?" confirmText="Delete" variant="destructive" />
+      <ConfirmDialog open={showDelete} onClose={() => setShowDelete(false)} onConfirm={() => { setShowDelete(false); toast.info('Notification delete API is not available on the backend yet') }} title="Delete" description="Remove this notification?" confirmText="Delete" variant="destructive" />
     </DashboardLayout>
   )
 }

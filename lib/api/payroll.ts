@@ -1,7 +1,4 @@
-/**
- * Payroll API — `/api/payroll`
- */
+import { createResourceApi } from './create-resource-api'
+import type { PayrollRecordDto } from './types/resources'
 
-export const payrollApi = {
-  // list, getByEmployee, process, ...
-}
+export const payrollApi = createResourceApi<PayrollRecordDto>('/payroll')

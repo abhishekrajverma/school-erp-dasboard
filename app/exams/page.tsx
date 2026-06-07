@@ -13,16 +13,20 @@ import { DataTable, StatusBadge, ActionMenu } from '@/components/shared/data-tab
 import { SlideOver } from '@/components/shared/slide-over'
 import { ConfirmDialog } from '@/components/shared/confirm-dialog'
 import { PageHeader, StatCard, Tabs, FormSection, FormField } from '@/components/shared/page-components'
-import { examsData } from '@/lib/erp-data'
+import { ApiPageLoading, ApiPageError } from '@/components/shared/api-page-state'
 import { examSchema, type ExamFormData } from '@/lib/schemas'
 import { exportToCsv } from '@/lib/export'
-import { useToast } from '@/hooks/use-toast'
+import type { ExamDto } from '@/lib/api/types/resources'
+import { useExams } from '@/hooks/api'
+import { isApiError } from '@/lib/api/interceptors/errors'
+import { toast } from 'sonner'
 
-type Exam = (typeof examsData)[0]
+type Exam = ExamDto
 
 export default function ExamsPage() {
-  const { toast } = useToast()
-  const [exams, setExams] = React.useState(examsData)
+  const { data, isLoading, isError, error, refetch } = useExams({ page: 1, pageSize: 100 })
+  const exams = data?.items ?? []
+
   const [tab, setTab] = React.useState('all')
   const [showForm, setShowForm] = React.useState(false)
   const [showDelete, setShowDelete] = React.useState(false)
@@ -45,12 +49,20 @@ export default function ExamsPage() {
     ]} /> },
   ]
 
-  const handleSave = (data: ExamFormData) => {
-    if (selected) setExams(exams.map((e) => e.id === selected.id ? { ...e, ...data } : e))
-    else setExams([...exams, { id: String(exams.length + 1), ...data, room: 'TBD', status: 'scheduled' as const, studentsCount: 40 }])
+  const handleSave = () => {
+    toast.info('Exam write API is not available on the backend yet')
     setShowForm(false)
     setSelected(null)
-    toast({ title: 'Exam saved' })
+  }
+
+  if (isLoading) return <ApiPageLoading rows={3} />
+  if (isError) {
+    return (
+      <ApiPageError
+        message={isApiError(error) ? error.message : 'Failed to load exams from EduSync.'}
+        onRetry={() => refetch()}
+      />
+    )
   }
 
   return (
@@ -87,7 +99,7 @@ export default function ExamsPage() {
         </FormSection>
       </SlideOver>
 
-      <ConfirmDialog open={showDelete} onClose={() => setShowDelete(false)} onConfirm={() => { if (selected) { setExams(exams.filter((e) => e.id !== selected.id)); setShowDelete(false) } }} title="Delete Exam" description="Remove this exam?" confirmText="Delete" variant="destructive" />
+      <ConfirmDialog open={showDelete} onClose={() => setShowDelete(false)} onConfirm={() => { setShowDelete(false); toast.info('Exam delete API is not available on the backend yet') }} title="Delete Exam" description="Remove this exam?" confirmText="Delete" variant="destructive" />
     </DashboardLayout>
   )
 }

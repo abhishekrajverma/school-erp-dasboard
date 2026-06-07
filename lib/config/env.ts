@@ -17,6 +17,12 @@ export const env = {
     process.env.NEXT_PUBLIC_API_URL ??
     'http://localhost:5000/api',
   appUrl: process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000',
+  /** Default tenant id for login and server-side API calls */
+  defaultTenantId:
+    process.env.NEXT_PUBLIC_TENANT_ID ??
+    process.env.DEFAULT_TENANT_ID ??
+    process.env.NEXT_PUBLIC_DEFAULT_TENANT_ID ??
+    'demo-school-001',
   /** Use mock auth + local data instead of real API */
   useMock: readBool(process.env.NEXT_PUBLIC_USE_MOCK, true),
   isDev: process.env.NODE_ENV === 'development',

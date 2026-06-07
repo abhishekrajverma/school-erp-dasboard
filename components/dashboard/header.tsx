@@ -44,8 +44,8 @@ import {
   CommandItem,
   CommandList,
 } from '@/components/ui/command'
-import { schools, currentSchool } from '@/lib/data'
 import { useAuth } from '@/components/providers/auth-provider'
+import { useTenant } from '@/components/providers/tenant-provider'
 import { useRouter } from 'next/navigation'
 
 interface HeaderProps {
@@ -57,9 +57,10 @@ export function Header({ sidebarCollapsed, onSidebarToggle }: HeaderProps) {
   const router = useRouter()
   const { theme, setTheme } = useTheme()
   const { user: session, logout } = useAuth()
+  const { tenant } = useTenant()
   const [mounted, setMounted] = React.useState(false)
   const [schoolOpen, setSchoolOpen] = React.useState(false)
-  const [selectedSchool, setSelectedSchool] = React.useState(currentSchool)
+  const schoolName = tenant?.name ?? 'School'
 
   React.useEffect(() => {
     setMounted(true)
@@ -100,7 +101,7 @@ export function Header({ sidebarCollapsed, onSidebarToggle }: HeaderProps) {
             >
               <div className="flex items-center gap-2">
                 <Building2 className="h-4 w-4 text-primary" />
-                <span className="truncate">{selectedSchool.name}</span>
+                <span className="truncate">{schoolName}</span>
               </div>
               <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
             </Button>
@@ -110,31 +111,17 @@ export function Header({ sidebarCollapsed, onSidebarToggle }: HeaderProps) {
               <CommandInput placeholder="Search schools..." />
               <CommandList>
                 <CommandEmpty>No school found.</CommandEmpty>
-                <CommandGroup heading="Schools">
-                  {schools.map((school) => (
-                    <CommandItem
-                      key={school.id}
-                      value={school.name}
-                      onSelect={() => {
-                        setSelectedSchool(school)
-                        setSchoolOpen(false)
-                      }}
-                    >
-                      <div className="flex items-center gap-2 flex-1">
-                        <Building2 className="h-4 w-4 text-muted-foreground" />
-                        <div className="flex flex-col">
-                          <span className="text-sm">{school.name}</span>
-                          <span className="text-xs text-muted-foreground">{school.city}</span>
-                        </div>
+                <CommandGroup heading="Current tenant">
+                  <CommandItem value={schoolName} onSelect={() => setSchoolOpen(false)}>
+                    <div className="flex items-center gap-2 flex-1">
+                      <Building2 className="h-4 w-4 text-muted-foreground" />
+                      <div className="flex flex-col">
+                        <span className="text-sm">{schoolName}</span>
+                        {tenant?.slug ? <span className="text-xs text-muted-foreground">{tenant.slug}</span> : null}
                       </div>
-                      <Badge variant="secondary" className="ml-auto text-[10px]">
-                        {school.plan}
-                      </Badge>
-                      {selectedSchool.id === school.id && (
-                        <Check className="ml-2 h-4 w-4 text-primary" />
-                      )}
-                    </CommandItem>
-                  ))}
+                    </div>
+                    <Check className="ml-2 h-4 w-4 text-primary" />
+                  </CommandItem>
                 </CommandGroup>
               </CommandList>
             </Command>

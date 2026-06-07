@@ -22,17 +22,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { PageHeader, StatCard, Tabs } from '@/components/shared/page-components'
 import { StatusBadge } from '@/components/shared/data-table'
 import { formatCurrency, formatDate } from '@/lib/format'
-import { schoolSettings } from '@/lib/erp-data'
 import {
-  getPrincipalPendingLeaves,
-  getPrincipalProfile,
-  getPrincipalRecentAdmissions,
-  getPrincipalRecentFeePayments,
-  getPrincipalSchoolStats,
-  getPrincipalStaffToday,
-  getPrincipalNotices,
-  getPrincipalUpcomingExams,
-} from '@/lib/principal-portal'
+  useAdmissions,
+  useDashboard,
+  useExams,
+  useLeaveRequests,
+  useNotifications,
+} from '@/hooks/api'
+import { useAuth } from '@/components/providers/auth-provider'
 import {
   getPrincipalPortalTabFromSearch,
   getPrincipalPortalTabHref,
@@ -62,16 +59,35 @@ function PrincipalPortalContent() {
     [router],
   )
 
-  const profile = getPrincipalProfile()
-  const stats = getPrincipalSchoolStats()
-  const pendingLeaves = getPrincipalPendingLeaves()
-  const staffToday = getPrincipalStaffToday()
-  const notices = getPrincipalNotices()
-  const upcomingExams = getPrincipalUpcomingExams()
-  const recentAdmissions = getPrincipalRecentAdmissions()
-  const recentPayments = getPrincipalRecentFeePayments()
+  const { user } = useAuth()
+  const dashboardQuery = useDashboard()
+  const leaveQuery = useLeaveRequests()
+  const admissionsQuery = useAdmissions()
+  const examsQuery = useExams()
+  const noticesQuery = useNotifications()
 
-  const presentStaff = staffToday.filter((t) => t.status === 'present' || t.status === 'late').length
+  const profile = {
+    name: user?.name ?? 'Principal',
+    email: user?.email ?? '',
+    role: 'Principal',
+    avatar: null as string | null,
+  }
+  const stats = dashboardQuery.data?.stats ?? {
+    totalStudents: 0,
+    totalTeachers: 0,
+    pendingFees: 0,
+    monthlyRevenue: 0,
+    attendancePercentage: 0,
+    salaryPaid: 0,
+    transportRoutes: 0,
+    newAdmissions: 0,
+  }
+  const pendingLeaves = (leaveQuery.data?.items ?? []).filter((l) => l.status === 'pending')
+  const notices = noticesQuery.data?.items ?? []
+  const upcomingExams = (examsQuery.data?.items ?? []).filter((e) => e.status === 'scheduled')
+  const scheduledExamCount = upcomingExams.length
+  const recentAdmissions = admissionsQuery.data?.items ?? []
+  const recentPayments: { id: string; studentName: string; amount: number; paidAt: string }[] = []
 
   return (
     <PortalLayout>
@@ -102,15 +118,10 @@ function PrincipalPortalContent() {
               <h2 className="text-lg font-semibold">{profile.name}</h2>
               <Badge variant="secondary" className="gap-1">
                 <Landmark className="h-3 w-3" />
-                {profile.title}
+                {profile.role}
               </Badge>
             </div>
-            <p className="text-sm text-muted-foreground">
-              {profile.schoolName} · Academic year {profile.academicYear}
-            </p>
-            <p className="text-xs text-muted-foreground">
-              {schoolSettings.affiliationBoard} · {schoolSettings.city}
-            </p>
+            <p className="text-sm text-muted-foreground">{profile.email}</p>
           </div>
         </motion.div>
 
@@ -132,10 +143,10 @@ function PrincipalPortalContent() {
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <StatCard
                 title="Active students"
-                value={stats.activeStudents}
+                value={stats.totalStudents}
                 icon={GraduationCap}
               />
-              <StatCard title="Teaching staff" value={stats.activeTeachers} icon={Users} />
+              <StatCard title="Teaching staff" value={stats.totalTeachers} icon={Users} />
               <StatCard
                 title="Attendance today"
                 value={`${stats.attendancePercentage}%`}
@@ -182,7 +193,7 @@ function PrincipalPortalContent() {
                     className="flex w-full items-center justify-between rounded-lg border border-border p-3 text-left transition-colors hover:bg-muted/50"
                   >
                     <span className="text-sm font-medium">Scheduled exams</span>
-                    <Badge variant="outline">{stats.scheduledExams}</Badge>
+                    <Badge variant="outline">{scheduledExamCount}</Badge>
                   </button>
                 </CardContent>
               </Card>
@@ -207,12 +218,6 @@ function PrincipalPortalContent() {
                     <span className="text-muted-foreground">Transport routes:</span>{' '}
                     <span className="font-medium">{stats.transportRoutes}</span>
                   </p>
-                  <p>
-                    <span className="text-muted-foreground">Staff present:</span>{' '}
-                    <span className="font-medium">
-                      {presentStaff}/{staffToday.length}
-                    </span>
-                  </p>
                 </CardContent>
               </Card>
             </div>
@@ -222,7 +227,7 @@ function PrincipalPortalContent() {
         {activeTab === 'academics' && (
           <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
             <div className="grid gap-4 sm:grid-cols-2">
-              <StatCard title="Scheduled exams" value={stats.scheduledExams} icon={BookOpen} />
+              <StatCard title="Scheduled exams" value={scheduledExamCount} icon={BookOpen} />
               <StatCard title="New admissions (Jun)" value={stats.newAdmissions} icon={GraduationCap} />
             </div>
             <div className="grid gap-4 lg:grid-cols-2">
@@ -239,7 +244,7 @@ function PrincipalPortalContent() {
                       <div>
                         <p className="font-medium text-sm">{exam.subject}</p>
                         <p className="text-xs text-muted-foreground">
-                          Class {exam.class} · {exam.time}
+                          Class {exam.class} · {exam.startTime}
                         </p>
                       </div>
                       <Badge variant="outline">{formatDate(exam.date)}</Badge>
@@ -258,13 +263,13 @@ function PrincipalPortalContent() {
                       className="flex items-center justify-between rounded-lg border border-border p-3"
                     >
                       <div>
-                        <p className="font-medium text-sm">{admission.name}</p>
+                        <p className="font-medium text-sm">{admission.applicantName}</p>
                         <p className="text-xs text-muted-foreground">
-                          Class {admission.class} · {admission.guardian}
+                          Class {admission.classSought} · {admission.status}
                         </p>
                       </div>
                       <span className="text-xs text-muted-foreground">
-                        {formatDate(admission.date)}
+                        {formatDate(admission.createdAt)}
                       </span>
                     </div>
                   ))}
@@ -277,40 +282,9 @@ function PrincipalPortalContent() {
         {activeTab === 'staff' && (
           <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              <StatCard title="Staff on campus" value={`${presentStaff}/${staffToday.length}`} icon={UserCheck} />
               <StatCard title="Pending leave" value={pendingLeaves.length} icon={Calendar} />
               <StatCard title="Payroll (month)" value={formatCurrency(stats.salaryPaid)} icon={Wallet} />
             </div>
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">Today&apos;s staff attendance</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                {staffToday.map((member) => (
-                  <div
-                    key={member.id}
-                    className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border p-3"
-                  >
-                    <div>
-                      <p className="font-medium text-sm">{member.name}</p>
-                      <p className="text-xs text-muted-foreground">{member.department}</p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-muted-foreground">{member.time}</span>
-                      <StatusBadge
-                        status={
-                          member.status === 'present'
-                            ? 'active'
-                            : member.status === 'late'
-                              ? 'pending'
-                              : 'inactive'
-                        }
-                      />
-                    </div>
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
             {pendingLeaves.length > 0 && (
               <Card className="border-amber-500/25">
                 <CardHeader>
@@ -361,27 +335,28 @@ function PrincipalPortalContent() {
                 <CardTitle className="text-base">Recent fee payments</CardTitle>
               </CardHeader>
               <CardContent className="space-y-2">
-                {recentPayments.map((payment) => (
-                  <div
-                    key={payment.id}
-                    className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border p-3"
-                  >
-                    <div>
-                      <p className="font-medium text-sm">{payment.student}</p>
-                      <p className="text-xs text-muted-foreground">
-                        Class {payment.class} · {formatDate(payment.date)}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-3">
+                {recentPayments.length === 0 ? (
+                  <p className="text-sm text-muted-foreground py-4 text-center">
+                    Payment history loads from the fees API when available.
+                  </p>
+                ) : (
+                  recentPayments.map((payment) => (
+                    <div
+                      key={payment.id}
+                      className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border p-3"
+                    >
+                      <div>
+                        <p className="font-medium text-sm">{payment.studentName}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {formatDate(payment.paidAt)}
+                        </p>
+                      </div>
                       <span className="font-medium text-sm">
                         {formatCurrency(payment.amount)}
                       </span>
-                      <StatusBadge
-                        status={payment.status === 'completed' ? 'active' : 'pending'}
-                      />
                     </div>
-                  </div>
-                ))}
+                  ))
+                )}
               </CardContent>
             </Card>
           </motion.div>
@@ -403,20 +378,10 @@ function PrincipalPortalContent() {
                     <div>
                       <p className="font-medium">{notice.title}</p>
                       <p className="text-xs text-muted-foreground mt-0.5">
-                        {formatDate(notice.date)}
+                        {formatDate(notice.sentAt)}
                       </p>
                     </div>
-                    <Badge
-                      variant={
-                        notice.priority === 'high'
-                          ? 'destructive'
-                          : notice.priority === 'medium'
-                            ? 'default'
-                            : 'secondary'
-                      }
-                    >
-                      {notice.priority}
-                    </Badge>
+                    <Badge variant="secondary">{notice.type}</Badge>
                   </div>
                 ))}
               </CardContent>

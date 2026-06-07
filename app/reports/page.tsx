@@ -40,54 +40,11 @@ import {
 } from '@/components/ui/select'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
-
+import { ApiPageLoading, ApiPageError } from '@/components/shared/api-page-state'
 import { enrichPieData } from '@/lib/chart-colors'
 import { PieChartTooltip, PieChartLegend, pieActiveShape } from '@/components/charts/pie-chart-tooltip'
-
-// Financial data
-const monthlyRevenue = [
-  { month: 'Jan', revenue: 7200000, fees: 6500000, other: 700000 },
-  { month: 'Feb', revenue: 7800000, fees: 7000000, other: 800000 },
-  { month: 'Mar', revenue: 8100000, fees: 7300000, other: 800000 },
-  { month: 'Apr', revenue: 7500000, fees: 6800000, other: 700000 },
-  { month: 'May', revenue: 8400000, fees: 7600000, other: 800000 },
-  { month: 'Jun', revenue: 8750000, fees: 7900000, other: 850000 },
-]
-
-const expenseBreakdown = enrichPieData([
-  { category: 'Salaries', amount: 4250000 },
-  { category: 'Infrastructure', amount: 850000 },
-  { category: 'Utilities', amount: 320000 },
-  { category: 'Transport', amount: 280000 },
-  { category: 'Others', amount: 150000 },
-])
-
-// Academic data
-const classPerformance = [
-  { class: '6th', avgScore: 78, students: 120 },
-  { class: '7th', avgScore: 82, students: 115 },
-  { class: '8th', avgScore: 75, students: 125 },
-  { class: '9th', avgScore: 80, students: 118 },
-  { class: '10th', avgScore: 85, students: 110 },
-  { class: '11th', avgScore: 79, students: 105 },
-  { class: '12th', avgScore: 88, students: 98 },
-]
-
-const subjectPerformance = [
-  { subject: 'Mathematics', avgScore: 78 },
-  { subject: 'Science', avgScore: 82 },
-  { subject: 'English', avgScore: 85 },
-  { subject: 'Social Studies', avgScore: 80 },
-  { subject: 'Languages', avgScore: 83 },
-]
-
-// Attendance trends
-const attendanceTrend = [
-  { week: 'W1', students: 94.2, teachers: 98.5 },
-  { week: 'W2', students: 93.8, teachers: 97.2 },
-  { week: 'W3', students: 95.1, teachers: 99.1 },
-  { week: 'W4', students: 92.5, teachers: 96.8 },
-]
+import { useDashboard } from '@/hooks/api'
+import { isApiError } from '@/lib/api/interceptors/errors'
 
 function formatCurrency(value: number) {
   if (value >= 10000000) return `₹${(value / 10000000).toFixed(1)}Cr`
@@ -98,6 +55,40 @@ function formatCurrency(value: number) {
 
 export default function ReportsPage() {
   const [dateRange, setDateRange] = React.useState('6months')
+  const { data, isLoading, isError, error, refetch } = useDashboard()
+
+  const monthlyRevenue = (data?.monthlyFeeCollection ?? []).map((m) => ({
+    month: m.month,
+    revenue: m.collected + m.pending,
+    fees: m.collected,
+    other: m.pending,
+  }))
+
+  const expenseBreakdown = enrichPieData(
+    data?.stats?.salaryPaid
+      ? [{ category: 'Salaries', amount: data.stats.salaryPaid }]
+      : [],
+  )
+
+  const attendanceTrend = (data?.studentAttendance ?? []).map((d, i) => ({
+    week: d.day.slice(0, 3) || `W${i + 1}`,
+    students: d.present + d.absent > 0 ? Math.round((d.present / (d.present + d.absent)) * 1000) / 10 : 0,
+    teachers: data?.attendanceSummary?.thisWeek?.avgAttendance ?? 0,
+  }))
+
+  const totalRevenue = monthlyRevenue.reduce((a, m) => a + m.revenue, 0)
+  const avgAttendance = data?.attendanceSummary?.thisMonth?.avgAttendance ?? data?.stats?.attendancePercentage ?? 0
+  const feeCollection = data?.feeSummary?.collectionRate ?? 0
+
+  if (isLoading) return <ApiPageLoading rows={4} />
+  if (isError) {
+    return (
+      <ApiPageError
+        message={isApiError(error) ? error.message : 'Failed to load reports data from EduSync.'}
+        onRetry={() => refetch()}
+      />
+    )
+  }
 
   return (
     <DashboardLayout>
@@ -149,7 +140,7 @@ export default function ReportsPage() {
                 <TrendingUp className="h-4 w-4 text-green-500" />
                 Total Revenue
               </CardDescription>
-              <CardTitle className="text-2xl">{formatCurrency(47750000)}</CardTitle>
+              <CardTitle className="text-2xl">{formatCurrency(totalRevenue)}</CardTitle>
             </CardHeader>
             <CardContent>
               <Badge variant="secondary" className="text-green-500">+15.3% vs last period</Badge>
@@ -161,7 +152,7 @@ export default function ReportsPage() {
                 <Users className="h-4 w-4 text-primary" />
                 Avg. Attendance
               </CardDescription>
-              <CardTitle className="text-2xl">93.9%</CardTitle>
+              <CardTitle className="text-2xl">{avgAttendance}%</CardTitle>
             </CardHeader>
             <CardContent>
               <Badge variant="secondary" className="text-green-500">+2.1% vs last period</Badge>
@@ -173,7 +164,7 @@ export default function ReportsPage() {
                 <CreditCard className="h-4 w-4 text-primary" />
                 Fee Collection
               </CardDescription>
-              <CardTitle className="text-2xl">87.5%</CardTitle>
+              <CardTitle className="text-2xl">{feeCollection}%</CardTitle>
             </CardHeader>
             <CardContent>
               <Badge variant="secondary" className="text-yellow-500">-1.2% vs last period</Badge>
@@ -185,10 +176,10 @@ export default function ReportsPage() {
                 <FileText className="h-4 w-4 text-primary" />
                 Avg. Academic Score
               </CardDescription>
-              <CardTitle className="text-2xl">81.2%</CardTitle>
+              <CardTitle className="text-2xl">—</CardTitle>
             </CardHeader>
             <CardContent>
-              <Badge variant="secondary" className="text-green-500">+3.5% vs last period</Badge>
+              <Badge variant="secondary">Academic reports API not available yet</Badge>
             </CardContent>
           </Card>
         </motion.div>
@@ -223,6 +214,9 @@ export default function ReportsPage() {
                     </div>
                   </CardHeader>
                   <CardContent>
+                    {monthlyRevenue.length === 0 ? (
+                      <p className="flex h-[300px] items-center justify-center text-sm text-muted-foreground">No financial data available yet.</p>
+                    ) : (
                     <div className="h-[300px]">
                       <ResponsiveContainer width="100%" height="100%">
                         <AreaChart data={monthlyRevenue}>
@@ -253,6 +247,7 @@ export default function ReportsPage() {
                         </AreaChart>
                       </ResponsiveContainer>
                     </div>
+                    )}
                   </CardContent>
                 </Card>
 
@@ -270,6 +265,9 @@ export default function ReportsPage() {
                     </div>
                   </CardHeader>
                   <CardContent>
+                    {expenseBreakdown.length === 0 ? (
+                      <p className="flex h-[300px] items-center justify-center text-sm text-muted-foreground">No expense data available yet.</p>
+                    ) : (
                     <div className="h-[300px]">
                       <ResponsiveContainer width="100%" height="100%">
                         <PieChart>
@@ -289,6 +287,7 @@ export default function ReportsPage() {
                         </PieChart>
                       </ResponsiveContainer>
                     </div>
+                    )}
                   </CardContent>
                 </Card>
               </div>
@@ -296,77 +295,11 @@ export default function ReportsPage() {
 
             {/* Academic Reports */}
             <TabsContent value="academic" className="space-y-4">
-              <div className="grid gap-4 lg:grid-cols-2">
-                <Card>
-                  <CardHeader>
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <CardTitle className="text-base">Class-wise Performance</CardTitle>
-                        <CardDescription>Average scores by class</CardDescription>
-                      </div>
-                      <Button variant="outline" size="sm" className="gap-2">
-                        <Download className="h-4 w-4" />
-                        Export
-                      </Button>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="h-[300px]">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={classPerformance}>
-                          <CartesianGrid strokeDasharray="3 3" stroke="var(--border))" vertical={false} />
-                          <XAxis dataKey="class" stroke="var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} />
-                          <YAxis stroke="var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} />
-                          <Tooltip
-                            contentStyle={{
-                              backgroundColor: 'var(--card))',
-                              border: '1px solid var(--border))',
-                              borderRadius: '8px',
-                              fontSize: '12px',
-                            }}
-                          />
-                          <Bar dataKey="avgScore" fill="var(--chart-1))" radius={[4, 4, 0, 0]} name="Avg Score %" />
-                        </BarChart>
-                      </ResponsiveContainer>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader>
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <CardTitle className="text-base">Subject Performance</CardTitle>
-                        <CardDescription>Average scores by subject</CardDescription>
-                      </div>
-                      <Button variant="outline" size="sm" className="gap-2">
-                        <Download className="h-4 w-4" />
-                        Export
-                      </Button>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="h-[300px]">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={subjectPerformance} layout="vertical">
-                          <CartesianGrid strokeDasharray="3 3" stroke="var(--border))" horizontal={false} />
-                          <XAxis type="number" stroke="var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} />
-                          <YAxis type="category" dataKey="subject" stroke="var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} width={100} />
-                          <Tooltip
-                            contentStyle={{
-                              backgroundColor: 'var(--card))',
-                              border: '1px solid var(--border))',
-                              borderRadius: '8px',
-                              fontSize: '12px',
-                            }}
-                          />
-                          <Bar dataKey="avgScore" fill="var(--chart-2))" radius={[0, 4, 4, 0]} name="Avg Score %" />
-                        </BarChart>
-                      </ResponsiveContainer>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
+              <Card>
+                <CardContent className="py-16 text-center text-sm text-muted-foreground">
+                  Academic performance reports are not available from the backend yet.
+                </CardContent>
+              </Card>
             </TabsContent>
 
             {/* Attendance Reports */}
@@ -385,6 +318,9 @@ export default function ReportsPage() {
                   </div>
                 </CardHeader>
                 <CardContent>
+                  {attendanceTrend.length === 0 ? (
+                    <p className="flex h-[300px] items-center justify-center text-sm text-muted-foreground">No attendance trend data available yet.</p>
+                  ) : (
                   <div className="h-[300px]">
                     <ResponsiveContainer width="100%" height="100%">
                       <LineChart data={attendanceTrend}>
@@ -406,6 +342,7 @@ export default function ReportsPage() {
                       </LineChart>
                     </ResponsiveContainer>
                   </div>
+                  )}
                 </CardContent>
               </Card>
             </TabsContent>

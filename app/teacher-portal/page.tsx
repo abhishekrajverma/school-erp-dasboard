@@ -46,8 +46,17 @@ import type { UploadedFileMeta } from '@/lib/admission/types'
 import { DataTable, StatusBadge } from '@/components/shared/data-table'
 import { SlideOver } from '@/components/shared/slide-over'
 import { PageHeader, StatCard, FormSection, FormField, Tabs } from '@/components/shared/page-components'
-import { type LeaveRequest } from '@/lib/erp-data'
+import type { LeaveRequestDto } from '@/lib/api/types/resources'
 import { formatCurrency, formatDate } from '@/lib/format'
+import {
+  useApplyTeacherLeave,
+  useNotifications,
+  useTeacherPortalLeaves,
+  useTeacherPortalPayroll,
+  useTeacherPortalTimetable,
+  useTeacherProfile,
+} from '@/hooks/api'
+import { ApiError } from '@/lib/api/client'
 import {
   teacherSelfLeaveSchema,
   teacherProfileUpdateSchema,
@@ -55,20 +64,10 @@ import {
   type TeacherProfileUpdateFormData,
 } from '@/lib/schemas'
 import {
-  getTeacherById,
-  getTeacherLeaves,
-  getTeacherPayroll,
-  getTeacherTodaysClasses,
-  getTeacherTimetable,
-  getTeacherBookIssues,
-  getTeacherTodayAttendance,
-  getStaffNotices,
-  getLeaveBalance,
   getTeacherProfilePhotoUrl,
   loadTeacherProfilePhotos,
   removeTeacherProfilePhoto,
   saveTeacherProfilePhoto,
-  teacherAttendanceLogs,
   teacherDutyRequestsData,
   type TeacherDutyRequest,
 } from '@/lib/teacher-portal'
@@ -98,7 +97,6 @@ function TeacherPortalContent() {
   const teacherId = session?.userId ?? ''
   const { toast } = useToast()
   const [activeTab, setActiveTab] = React.useState('overview')
-  const [leaveRequests, setLeaveRequests] = React.useState<LeaveRequest[]>([])
   const [dutyRequests, setDutyRequests] = React.useState(teacherDutyRequestsData)
   const [showApplyLeave, setShowApplyLeave] = React.useState(false)
   const [proofDocument, setProofDocument] = React.useState<UploadedFileMeta | null>(null)
@@ -106,20 +104,32 @@ function TeacherPortalContent() {
   const [checkedInToday, setCheckedInToday] = React.useState(false)
   const [profileSaved, setProfileSaved] = React.useState(false)
   const [profilePhotos, setProfilePhotos] = React.useState<Record<string, string>>({})
+  const teacherQuery = useTeacherProfile()
+  const leavesQuery = useTeacherPortalLeaves()
+  const payrollQuery = useTeacherPortalPayroll()
+  const timetableQuery = useTeacherPortalTimetable()
+  const noticesQuery = useNotifications({ targetAudience: 'teachers' } as never)
+  const applyLeave = useApplyTeacherLeave()
 
-  const teacher = getTeacherById(teacherId)
+  const teacher = teacherQuery.data
+  const leaveRequests = leavesQuery.data ?? []
+  const payroll = payrollQuery.data ?? []
+  const mySchedule = timetableQuery.data ?? []
+  const notices = noticesQuery.data?.items ?? []
+  const todayClasses = mySchedule.filter((entry) => {
+    const today = new Date().toLocaleDateString('en-US', { weekday: 'long' })
+    return entry.day.toLowerCase() === today.toLowerCase()
+  })
+
   const profilePhotoUrl = teacher
     ? getTeacherProfilePhotoUrl(teacherId, profilePhotos, teacher.avatar)
     : ''
-  const leaveBalance = getLeaveBalance(teacherId)
-  const payroll = getTeacherPayroll(teacherId)
-  const todayClasses = teacher ? getTeacherTodaysClasses(teacher.name) : []
-  const mySchedule = teacher ? getTeacherTimetable(teacher.name) : []
-  const bookIssues = getTeacherBookIssues(teacherId)
-  const todayAttendance = getTeacherTodayAttendance(teacherId)
-  const attendanceLog = teacherAttendanceLogs[teacherId] ?? []
   const myDutyRequests = dutyRequests.filter((r) => r.teacherId === teacherId)
-  const notices = getStaffNotices()
+  const leaveBalance = {
+    casual: { total: 12, used: leaveRequests.filter((r) => r.leaveType === 'casual').length },
+    sick: { total: 10, used: leaveRequests.filter((r) => r.leaveType === 'sick').length },
+    earned: { total: 15, used: leaveRequests.filter((r) => r.leaveType === 'earned').length },
+  }
 
   React.useEffect(() => {
     setProfilePhotos(loadTeacherProfilePhotos())
@@ -127,7 +137,6 @@ function TeacherPortalContent() {
 
   React.useEffect(() => {
     if (!teacherId) return
-    setLeaveRequests(getTeacherLeaves(teacherId))
     setCheckedInToday(false)
     setProfileSaved(false)
   }, [teacherId])
@@ -156,7 +165,7 @@ function TeacherPortalContent() {
     }
   }, [teacher, profileForm])
 
-  const handleApplyLeave = (data: TeacherSelfLeaveFormData) => {
+  const handleApplyLeave = async (data: TeacherSelfLeaveFormData) => {
     if (!teacher) return
 
     const requiresProof = LEAVE_TYPES_REQUIRING_PROOF.includes(
@@ -167,44 +176,33 @@ function TeacherPortalContent() {
       return
     }
 
-    const start = new Date(data.startDate)
-    const end = new Date(data.endDate)
-    const days = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1
-
-    const newRequest: LeaveRequest = {
-      id: String(Date.now()),
-      employeeId: teacher.id,
-      employeeName: teacher.name,
-      department: teacher.department,
-      leaveType: data.leaveType,
-      startDate: data.startDate,
-      endDate: data.endDate,
-      days,
-      reason: data.reason,
-      status: 'pending',
-      appliedOn: new Date().toISOString().split('T')[0],
-      approvedBy: null,
-      approvedOn: null,
-      proofDocument: proofDocument
-        ? {
-            name: proofDocument.name,
-            size: proofDocument.size,
-            type: proofDocument.type,
-            lastModified: proofDocument.lastModified,
-            previewUrl: proofDocument.previewUrl,
-          }
-        : null,
+    try {
+      await applyLeave.mutateAsync({
+        leaveType: data.leaveType,
+        startDate: data.startDate,
+        endDate: data.endDate,
+        reason: data.reason,
+      })
+      setShowApplyLeave(false)
+      leaveForm.reset()
+      setProofDocument(null)
+      setProofError(null)
+      toast({
+        title: 'Leave submitted',
+        description: 'Your request is pending approval from HR.',
+      })
+    } catch (error) {
+      toast({
+        title: 'Leave submission failed',
+        description:
+          error instanceof ApiError
+            ? error.message
+            : error instanceof Error
+              ? error.message
+              : 'Please try again.',
+        variant: 'destructive',
+      })
     }
-
-    setLeaveRequests((prev) => [newRequest, ...prev])
-    setShowApplyLeave(false)
-    leaveForm.reset()
-    setProofDocument(null)
-    setProofError(null)
-    toast({
-      title: 'Leave submitted',
-      description: 'Your request is pending approval from HR.',
-    })
   }
 
   const handleCheckIn = () => {
@@ -261,7 +259,7 @@ function TeacherPortalContent() {
     toast({ title: 'Request submitted', description: 'Admin will review your request shortly.' })
   }
 
-  const leaveColumns: ColumnDef<LeaveRequest>[] = [
+  const leaveColumns: ColumnDef<LeaveRequestDto>[] = [
     {
       accessorKey: 'leaveType',
       header: 'Type',
@@ -299,6 +297,14 @@ function TeacherPortalContent() {
   const remainingCasual = leaveBalance.casual.total - leaveBalance.casual.used
   const remainingSick = leaveBalance.sick.total - leaveBalance.sick.used
   const remainingEarned = leaveBalance.earned.total - leaveBalance.earned.used
+
+  if (teacherQuery.isLoading) {
+    return (
+      <PortalLayout>
+        <p className="p-8 text-muted-foreground">Loading your portal…</p>
+      </PortalLayout>
+    )
+  }
 
   if (!teacher) {
     return (
@@ -445,7 +451,9 @@ function TeacherPortalContent() {
                             {c.class} · {c.room}
                           </p>
                         </div>
-                        <Badge variant="outline">{c.time}</Badge>
+                        <Badge variant="outline">
+                          {c.startTime} – {c.endTime}
+                        </Badge>
                       </div>
                     ))
                   )}
@@ -467,10 +475,10 @@ function TeacherPortalContent() {
                     >
                       <p className="text-sm font-medium">{n.title}</p>
                       <Badge
-                        variant={n.priority === 'high' ? 'destructive' : 'secondary'}
+                        variant={n.type === 'urgent' ? 'destructive' : 'secondary'}
                         className="text-[10px]"
                       >
-                        {n.priority}
+                        {n.type}
                       </Badge>
                     </div>
                   ))}
@@ -552,17 +560,10 @@ function TeacherPortalContent() {
               </CardHeader>
               <CardContent className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                  {checkedInToday || todayAttendance?.status === 'present' ? (
+                  {checkedInToday ? (
                     <div className="flex items-center gap-2 text-success">
                       <CheckCircle2 className="h-5 w-5" />
-                      <span className="font-medium">
-                        Present
-                        {todayAttendance?.time && !checkedInToday
-                          ? ` · ${todayAttendance.time}`
-                          : checkedInToday
-                            ? ' · Just checked in'
-                            : ''}
-                      </span>
+                      <span className="font-medium">Present · Just checked in</span>
                     </div>
                   ) : (
                     <p className="text-sm text-muted-foreground">You have not checked in yet today.</p>
@@ -584,24 +585,9 @@ function TeacherPortalContent() {
                 <CardTitle className="text-base">Recent attendance</CardTitle>
               </CardHeader>
               <CardContent>
-                {attendanceLog.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">No attendance history for this demo teacher.</p>
-                ) : (
-                  <div className="space-y-2">
-                    {attendanceLog.map((log) => (
-                      <div
-                        key={log.date}
-                        className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border p-3"
-                      >
-                        <span className="text-sm font-medium tabular-nums">{formatDate(log.date)}</span>
-                        <StatusBadge status={log.status} />
-                        <span className="text-xs text-muted-foreground">
-                          {log.checkIn ? `${log.checkIn} – ${log.checkOut ?? '—'}` : 'No punch'}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                <p className="text-sm text-muted-foreground">
+                  Attendance history is managed by HR. Use check-in for today&apos;s mark.
+                </p>
               </CardContent>
             </Card>
           </motion.div>
@@ -624,15 +610,17 @@ function TeacherPortalContent() {
                     No periods found in the sample timetable for {teacher.name}.
                   </p>
                 ) : (
-                  mySchedule.map((p, i) => (
+                  mySchedule.map((p) => (
                     <div
-                      key={i}
+                      key={p.id}
                       className="flex items-center gap-4 rounded-lg border border-border p-4"
                     >
-                      <span className="font-mono text-sm text-muted-foreground w-28">{p.time}</span>
+                      <span className="font-mono text-sm text-muted-foreground w-28">
+                        {p.startTime} – {p.endTime}
+                      </span>
                       <div className="flex-1">
                         <p className="font-medium">{p.subject}</p>
-                        <p className="text-sm text-muted-foreground">{teacher.classes.join(', ')}</p>
+                        <p className="text-sm text-muted-foreground">{p.class}</p>
                       </div>
                       <Badge variant="outline">{p.room}</Badge>
                     </div>
@@ -738,24 +726,6 @@ function TeacherPortalContent() {
                 </Card>
               ))}
             </div>
-            {bookIssues.length > 0 && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-base">Library books issued</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-2">
-                  {bookIssues.map((b) => (
-                    <div
-                      key={b.id}
-                      className="flex justify-between rounded-lg border border-border p-3 text-sm"
-                    >
-                      <span>{b.bookTitle}</span>
-                      <StatusBadge status={b.status} />
-                    </div>
-                  ))}
-                </CardContent>
-              </Card>
-            )}
           </motion.div>
         )}
 

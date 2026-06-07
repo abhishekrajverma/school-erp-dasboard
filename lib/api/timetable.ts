@@ -1,7 +1,4 @@
-/**
- * Timetable API — `/api/timetable`
- */
+import { createResourceApi } from './create-resource-api'
+import type { TimetableEntryDto } from './types/resources'
 
-export const timetableApi = {
-  // list, getByClass, getByTeacher, ...
-}
+export const timetableApi = createResourceApi<TimetableEntryDto>('/timetable')

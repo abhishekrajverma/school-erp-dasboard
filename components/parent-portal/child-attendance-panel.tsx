@@ -25,12 +25,27 @@ import { formatDate } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import {
   filterAttendanceByPeriod,
-  getChildDailyAttendanceLog,
-  getChildMonthlyAttendanceSummaries,
   summarizeAttendanceLogs,
   type AttendanceViewPeriod,
   type StudentDailyAttendance,
 } from '@/lib/parent-portal'
+import { useParentChildAttendance } from '@/hooks/api'
+import type { AttendanceRecordDto } from '@/lib/api/types/attendance'
+import { Loader2 } from 'lucide-react'
+
+const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const
+
+function mapAttendanceRecord(record: AttendanceRecordDto): StudentDailyAttendance {
+  const date = new Date(record.date)
+  return {
+    date: record.date,
+    dayLabel: DAY_NAMES[date.getDay()] ?? '—',
+    status: record.status as StudentDailyAttendance['status'],
+    checkIn: record.checkIn,
+    checkOut: record.checkOut,
+    remarks: record.remarks ?? '',
+  }
+}
 
 const PERIOD_OPTIONS: { id: AttendanceViewPeriod; label: string; description: string }[] = [
   { id: '7days', label: '7 Days', description: 'Last 7 school days' },
@@ -150,14 +165,41 @@ export function ChildAttendancePanel({
   studentName: string
 }) {
   const [period, setPeriod] = React.useState<AttendanceViewPeriod>('7days')
+  const attendanceQuery = useParentChildAttendance(studentId)
   const dailyLog = React.useMemo(
-    () => getChildDailyAttendanceLog(studentId),
-    [studentId],
+    () => (attendanceQuery.data ?? []).map(mapAttendanceRecord),
+    [attendanceQuery.data],
   )
-  const monthlySummaries = React.useMemo(
-    () => getChildMonthlyAttendanceSummaries(studentId),
-    [studentId],
-  )
+  const monthlySummaries = React.useMemo(() => {
+    const byMonth = new Map<string, StudentDailyAttendance[]>()
+    for (const log of dailyLog) {
+      const key = log.date.slice(0, 7)
+      const group = byMonth.get(key) ?? []
+      group.push(log)
+      byMonth.set(key, group)
+    }
+    return [...byMonth.entries()]
+      .sort(([a], [b]) => b.localeCompare(a))
+      .map(([monthKey, logs]) => {
+        const summary = summarizeAttendanceLogs(logs)
+        const [year, month] = monthKey.split('-').map(Number)
+        return {
+          monthKey,
+          monthLabel: new Date(year, month - 1, 1).toLocaleDateString('en-IN', {
+            month: 'long',
+            year: 'numeric',
+          }),
+          year,
+          month,
+          workingDays: summary.workingDays,
+          present: summary.present,
+          late: summary.late,
+          absent: summary.absent,
+          percentage: summary.percentage,
+          logs,
+        }
+      })
+  }, [dailyLog])
   const [selectedMonthKey, setSelectedMonthKey] = React.useState(
     monthlySummaries[0]?.monthKey ?? '',
   )
@@ -193,6 +235,14 @@ export function ChildAttendancePanel({
       : periodMeta.description
 
   const todayLog = dailyLog[0]
+
+  if (attendanceQuery.isLoading) {
+    return (
+      <div className="flex justify-center py-12">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">

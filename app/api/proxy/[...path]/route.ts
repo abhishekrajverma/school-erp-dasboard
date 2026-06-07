@@ -24,7 +24,8 @@ async function proxyRequest(request: NextRequest, pathSegments: string[]) {
   if (tenantId) headers.set('X-Tenant-Id', tenantId)
 
   const method = request.method
-  const hasBody = method !== 'GET' && method !== 'HEAD'
+  const hasBody =
+    method !== 'GET' && method !== 'HEAD' && method !== 'DELETE'
   const body = hasBody ? await request.arrayBuffer() : undefined
 
   const backendResponse = await fetch(url.toString(), {
@@ -40,6 +41,14 @@ async function proxyRequest(request: NextRequest, pathSegments: string[]) {
   if (backendCorrelation) responseHeaders.set(CORRELATION_HEADER, backendCorrelation)
 
   const responseBody = await backendResponse.arrayBuffer()
+
+  // 204/205/304 responses must not include a body
+  if ([204, 205, 304].includes(backendResponse.status)) {
+    return new NextResponse(null, {
+      status: backendResponse.status,
+      headers: responseHeaders,
+    })
+  }
 
   return new NextResponse(responseBody, {
     status: backendResponse.status,

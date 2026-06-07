@@ -5,11 +5,15 @@ import { studentsApi } from '@/lib/api/students'
 import { queryKeys } from '@/hooks/api/query-keys'
 import type { CreateStudentRequest, UpdateStudentRequest } from '@/lib/api/types/students'
 import type { ListQueryParams } from '@/lib/api/types/common'
+import { useAuthQueryEnabled } from './use-auth-query'
 
 export function useStudents(params?: ListQueryParams) {
+  const enabled = useAuthQueryEnabled()
+
   return useQuery({
     queryKey: queryKeys.students.list(params),
     queryFn: () => studentsApi.list(params),
+    enabled,
   })
 }
 
@@ -39,6 +43,16 @@ export function useUpdateStudent() {
     onSuccess: (_, { id }) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.students.detail(id) })
       queryClient.invalidateQueries({ queryKey: queryKeys.students.lists() })
+    },
+  })
+}
+
+export function useDeleteStudent() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => studentsApi.delete(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.students.all })
     },
   })
 }

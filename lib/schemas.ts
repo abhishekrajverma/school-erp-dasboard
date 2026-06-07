@@ -315,7 +315,7 @@ export const parentSchema = z.object({
   phone: z.string().min(10, 'Phone is required'),
   occupation: z.string().optional(),
   address: z.string().min(5, 'Address is required'),
-  studentIds: z.string().optional(),
+  studentIds: z.array(z.string()).default([]),
   status: z.enum(['active', 'inactive']).default('active'),
 })
 

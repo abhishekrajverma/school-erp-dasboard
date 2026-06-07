@@ -1,7 +1,4 @@
-/**
- * Notifications API — `/api/notifications`
- */
+import { createResourceApi } from './create-resource-api'
+import type { NotificationDto } from './types/resources'
 
-export const notificationsApi = {
-  // list, markRead, create, ...
-}
+export const notificationsApi = createResourceApi<NotificationDto>('/notifications')

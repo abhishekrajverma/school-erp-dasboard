@@ -3,7 +3,7 @@
 import * as React from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { motion } from 'framer-motion'
-import { Bus, CalendarCheck, CreditCard, Users } from 'lucide-react'
+import { Bus, CalendarCheck, CreditCard, Loader2, Users } from 'lucide-react'
 import { PortalGuard } from '@/components/portal/portal-guard'
 import { PortalLayout } from '@/components/portal/portal-layout'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
@@ -18,20 +18,21 @@ import { ParentFeesPanel } from '@/components/parent-portal/parent-fees-panel'
 import { ParentTransportPanel } from '@/components/parent-portal/parent-transport-panel'
 import { ParentNoticesPanel } from '@/components/parent-portal/parent-notices-panel'
 import { ParentProfilePanel } from '@/components/parent-portal/parent-profile-panel'
-import { getParentNoticesRich } from '@/lib/parent-notices'
-import { getChildTransportDetails, hasTransportOptIn } from '@/lib/parent-transport'
-import {
-  getParentById,
-  getParentChildren,
-  getChildDailyAttendanceLog,
-  getChildExams,
-} from '@/lib/parent-portal'
-import { getParentChildFees, summarizeParentFees } from '@/lib/parent-fees'
 import {
   getParentProfileDetails,
   getParentProfilePhotoUrl,
   loadParentProfilePhotos,
 } from '@/lib/parent-profile'
+import { summarizeParentFees } from '@/lib/parent-fees'
+import {
+  useExams,
+  useNotifications,
+  useParentChildAttendance,
+  useParentChildFees,
+  useParentChildTransport,
+  useParentChildren,
+  useParentProfile,
+} from '@/hooks/api'
 import {
   getParentPortalTabFromSearch,
   getParentPortalTabHref,
@@ -70,16 +71,39 @@ function ParentPortalContent() {
     [router],
   )
 
-  const parent = getParentById(parentId)
-  const children = getParentChildren(parentId)
+  const parentQuery = useParentProfile()
+  const childrenQuery = useParentChildren()
+  const parent = parentQuery.data
+  const children = childrenQuery.data ?? []
+  const selectedChild = children.find((c) => c.id === selectedChildId) ?? children[0]
+
+  const childFeesQuery = useParentChildFees(selectedChild?.id ?? '')
+  const childAttendanceQuery = useParentChildAttendance(selectedChild?.id ?? '')
+  const childTransportQuery = useParentChildTransport(selectedChild?.id ?? '')
+  const childExamsQuery = useExams(
+    selectedChild ? ({ className: selectedChild.class } as never) : undefined,
+  )
+  const noticesQuery = useNotifications({ targetAudience: 'parents' } as never)
+
   const profilePhotos = React.useMemo(() => loadParentProfilePhotos(), [profileVersion])
   const profileDetails = React.useMemo(
-    () => getParentProfileDetails(parentId),
-    [parentId, profileVersion],
+    () => (parent ? getParentProfileDetails(parent.id) : null),
+    [parent, profileVersion],
   )
   const profilePhotoUrl = parent
-    ? getParentProfilePhotoUrl(parentId, profilePhotos, parent.avatar)
+    ? getParentProfilePhotoUrl(parent.id, profilePhotos, parent.avatar ?? undefined)
     : ''
+
+  const childFeesSummary = selectedChild
+    ? summarizeParentFees((childFeesQuery.data ?? []) as never)
+    : null
+  const childDailyLog = (childAttendanceQuery.data ?? []).slice(0, 1)
+  const childExams = childExamsQuery.data?.items ?? []
+  const childTransport = childTransportQuery.data
+  const parentNotices = noticesQuery.data?.items ?? []
+  const upcomingPtm = parentNotices.find((n) => n.type === 'ptm')
+
+  const totalPendingAll = childFeesSummary?.pending ?? 0
 
   React.useEffect(() => {
     if (children.length > 0 && !selectedChildId) {
@@ -87,21 +111,17 @@ function ParentPortalContent() {
     }
   }, [children, selectedChildId])
 
-  const selectedChild = children.find((c) => c.id === selectedChildId) ?? children[0]
-  const childFeesSummary = selectedChild
-    ? summarizeParentFees(getParentChildFees(selectedChild.id))
-    : null
-  const childDailyLog = selectedChild ? getChildDailyAttendanceLog(selectedChild.id) : []
-  const childExams = selectedChild ? getChildExams(selectedChild.class) : []
-  const childTransport = selectedChild ? getChildTransportDetails(selectedChild.id) : null
-  const parentNotices = getParentNoticesRich()
-  const upcomingPtm = parentNotices.find((n) => n.type === 'ptm')
+  if (parentQuery.isLoading || childrenQuery.isLoading) {
+    return (
+      <PortalLayout>
+        <div className="flex min-h-[40vh] items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      </PortalLayout>
+    )
+  }
 
-  const totalPendingAll = children.reduce((sum, child) => {
-    return sum + summarizeParentFees(getParentChildFees(child.id)).pending
-  }, 0)
-
-  if (!parent) {
+  if (parentQuery.isError || !parent) {
     return (
       <PortalLayout>
         <p className="text-muted-foreground">Parent account not found.</p>
@@ -238,11 +258,7 @@ function ParentPortalContent() {
                     </p>
                     <p className="font-medium">{upcomingPtm.title}</p>
                     <p className="text-sm text-muted-foreground mt-0.5">
-                      {upcomingPtm.details.find((d) => d.label === 'Date')?.value ??
-                        formatDate(upcomingPtm.eventDate)}
-                      {' · '}
-                      {upcomingPtm.details.find((d) => d.label === 'Meeting hours')?.value ??
-                        'See notices for timing'}
+                      {formatDate(upcomingPtm.sentAt)}
                     </p>
                   </div>
                   <button
@@ -265,8 +281,9 @@ function ParentPortalContent() {
                     <div>
                       <p className="font-medium">{childTransport.route.routeName}</p>
                       <p className="text-sm text-muted-foreground">
-                        {childTransport.vehicle.vehicleNumber} · Pickup {childTransport.pickupStop.morningPickup} at{' '}
-                        {childTransport.pickupStop.name}
+                        {childTransport.vehicle?.vehicleNumber ?? '—'} · Pickup{' '}
+                        {childTransport.pickupStop?.morningPickup ?? childTransport.route.morningTime} at{' '}
+                        {childTransport.pickupStop?.name ?? childTransport.route.startPoint}
                       </p>
                     </div>
                   </div>
@@ -326,16 +343,9 @@ function ParentPortalContent() {
                 </CardHeader>
                 <CardContent className="flex flex-wrap gap-2">
                   <Badge variant="outline">Attendance {child.attendance}%</Badge>
-                  <StatusBadge status={child.feeStatus} />
+                  <StatusBadge status={child.feeStatus ?? 'pending'} />
                   <StatusBadge status={child.status} />
-                  {hasTransportOptIn(child.id) ? (
-                    <Badge variant="secondary" className="gap-1">
-                      <Bus className="h-3 w-3" />
-                      Transport
-                    </Badge>
-                  ) : (
-                    <Badge variant="outline">No transport</Badge>
-                  )}
+                  <Badge variant="outline">View transport tab</Badge>
                 </CardContent>
               </Card>
             ))}

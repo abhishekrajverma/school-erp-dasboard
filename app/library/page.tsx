@@ -32,16 +32,27 @@ import { DataTable, StatusBadge, ActionMenu } from '@/components/shared/data-tab
 import { SlideOver } from '@/components/shared/slide-over'
 import { ConfirmDialog } from '@/components/shared/confirm-dialog'
 import { PageHeader, StatCard, FormSection, FormField, Tabs } from '@/components/shared/page-components'
-import { booksData, bookIssuesData, studentsData, teachersData } from '@/lib/erp-data'
+import { ApiPageLoading, ApiPageError } from '@/components/shared/api-page-state'
+import type { BookDto, BookIssueDto } from '@/lib/api/types/resources'
 import { bookSchema, bookIssueSchema, type BookFormData, type BookIssueFormData } from '@/lib/schemas'
 import type { ColumnDef } from '@tanstack/react-table'
 
-type Book = (typeof booksData)[0]
-type BookIssue = (typeof bookIssuesData)[0]
+import { useLibraryBooks, useLibraryIssues, useStudents, useTeachers } from '@/hooks/api'
+import { isApiError } from '@/lib/api/interceptors/errors'
+import { toast } from 'sonner'
+
+type Book = BookDto
+type BookIssue = BookIssueDto
 
 export default function LibraryPage() {
-  const [books, setBooks] = React.useState(booksData)
-  const [issues, setIssues] = React.useState(bookIssuesData)
+  const { data: booksData, isLoading: booksLoading, isError: booksError, error: booksErr, refetch: refetchBooks } = useLibraryBooks({ page: 1, pageSize: 100 })
+  const { data: issuesData, isLoading: issuesLoading, isError: issuesError, error: issuesErr, refetch: refetchIssues } = useLibraryIssues({ page: 1, pageSize: 100 })
+  const { data: studentsData } = useStudents({ page: 1, pageSize: 100 })
+  const { data: teachersData } = useTeachers({ page: 1, pageSize: 100 })
+  const books = booksData?.items ?? []
+  const issues = issuesData?.items ?? []
+  const students = studentsData?.items ?? []
+  const teachers = teachersData?.items ?? []
   const [activeTab, setActiveTab] = React.useState('books')
   const [showAddBook, setShowAddBook] = React.useState(false)
   const [showEditBook, setShowEditBook] = React.useState(false)
@@ -79,85 +90,33 @@ export default function LibraryPage() {
     },
   })
 
-  const handleAddBook = (data: BookFormData) => {
-    const newBook = {
-      id: String(books.length + 1),
-      ...data,
-      available: data.quantity,
-      issued: 0,
-    }
-    setBooks([...books, newBook])
+  const handleAddBook = (_data: BookFormData) => {
+    toast.info('Library write API is not available on the backend yet')
     setShowAddBook(false)
     bookForm.reset()
   }
 
-  const handleEditBook = (data: BookFormData) => {
-    if (!selectedBook) return
-    setBooks(books.map((b) => (b.id === selectedBook.id ? { ...b, ...data } : b)))
+  const handleEditBook = (_data: BookFormData) => {
+    toast.info('Library write API is not available on the backend yet')
     setShowEditBook(false)
     setSelectedBook(null)
     bookForm.reset()
   }
 
   const handleDeleteBook = () => {
-    if (!selectedBook) return
-    setBooks(books.filter((b) => b.id !== selectedBook.id))
+    toast.info('Library delete API is not available on the backend yet')
     setShowDeleteConfirm(false)
     setSelectedBook(null)
   }
 
-  const handleIssueBook = (data: BookIssueFormData) => {
-    const book = books.find((b) => b.id === data.bookId)
-    const member = data.memberType === 'student' 
-      ? studentsData.find((s) => s.id === data.memberId)
-      : teachersData.find((t) => t.id === data.memberId)
-    
-    if (!book || !member) return
-
-    const newIssue: BookIssue = {
-      id: String(issues.length + 1),
-      bookId: data.bookId,
-      bookTitle: book.title,
-      memberId: data.memberId,
-      memberName: member.name,
-      memberType: data.memberType,
-      class: data.memberType === 'student' ? (member as typeof studentsData[0]).class : null,
-      issueDate: data.issueDate,
-      dueDate: data.dueDate,
-      returnDate: null,
-      status: 'issued',
-      fine: 0,
-    }
-
-    setIssues([...issues, newIssue])
-    setBooks(books.map((b) => 
-      b.id === data.bookId 
-        ? { ...b, available: b.available - 1, issued: b.issued + 1 }
-        : b
-    ))
+  const handleIssueBook = (_data: BookIssueFormData) => {
+    toast.info('Library issue API is not available on the backend yet')
     setShowIssueBook(false)
     issueForm.reset()
   }
 
   const handleReturnBook = () => {
-    if (!selectedIssue) return
-    
-    const today = new Date().toISOString().split('T')[0]
-    const dueDate = new Date(selectedIssue.dueDate)
-    const returnDate = new Date(today)
-    const daysLate = Math.max(0, Math.floor((returnDate.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24)))
-    const fine = daysLate * 5 // Rs. 5 per day
-
-    setIssues(issues.map((i) => 
-      i.id === selectedIssue.id 
-        ? { ...i, returnDate: today, status: 'returned', fine }
-        : i
-    ))
-    setBooks(books.map((b) => 
-      b.id === selectedIssue.bookId 
-        ? { ...b, available: b.available + 1, issued: b.issued - 1 }
-        : b
-    ))
+    toast.info('Library return API is not available on the backend yet')
     setShowReturnBook(false)
     setSelectedIssue(null)
   }
@@ -210,7 +169,7 @@ export default function LibraryPage() {
         <ActionMenu
           actions={[
             { label: 'Issue Book', onClick: () => { setSelectedBook(row.original); issueForm.setValue('bookId', row.original.id); setShowIssueBook(true) } },
-            { label: 'Edit Book', onClick: () => { setSelectedBook(row.original); bookForm.reset(row.original); setShowEditBook(true) } },
+            { label: 'Edit Book', onClick: () => { setSelectedBook(row.original); bookForm.reset({ title: row.original.title, author: row.original.author, isbn: row.original.isbn, category: row.original.category, publisher: row.original.publisher ?? '', publishYear: row.original.publishYear ?? new Date().getFullYear(), quantity: row.original.quantity, available: row.original.available, location: row.original.location ?? '', description: row.original.description ?? '' }); setShowEditBook(true) } },
             { label: 'Delete Book', onClick: () => { setSelectedBook(row.original); setShowDeleteConfirm(true) }, destructive: true },
           ]}
         />
@@ -271,6 +230,16 @@ export default function LibraryPage() {
     availableBooks: books.reduce((acc, b) => acc + b.available, 0),
     issuedBooks: books.reduce((acc, b) => acc + b.issued, 0),
     overdueBooks: issues.filter((i) => i.status === 'overdue').length,
+  }
+
+  if (booksLoading || issuesLoading) return <ApiPageLoading rows={4} />
+  if (booksError || issuesError) {
+    return (
+      <ApiPageError
+        message={isApiError(booksErr ?? issuesErr) ? (booksErr ?? issuesErr)?.message ?? 'Failed to load library data.' : 'Failed to load library from EduSync.'}
+        onRetry={() => { void refetchBooks(); void refetchIssues() }}
+      />
+    )
   }
 
   return (
@@ -349,7 +318,7 @@ export default function LibraryPage() {
       {/* Issue Book */}
       <SlideOver open={showIssueBook} onClose={() => { setShowIssueBook(false); setSelectedBook(null); issueForm.reset() }} title="Issue Book" description="Issue a book to a student or teacher." size="md"
         footer={<div className="flex justify-end gap-3"><Button variant="outline" onClick={() => setShowIssueBook(false)}>Cancel</Button><Button onClick={issueForm.handleSubmit(handleIssueBook)}>Issue Book</Button></div>}>
-        <IssueForm form={issueForm} books={books} students={studentsData} teachers={teachersData} />
+        <IssueForm form={issueForm} books={books} students={students} teachers={teachers} />
       </SlideOver>
 
       {/* Return Confirmation */}
@@ -383,7 +352,10 @@ function BookForm({ form }: { form: ReturnType<typeof useForm<BookFormData>> }) 
   )
 }
 
-function IssueForm({ form, books, students, teachers }: { form: ReturnType<typeof useForm<BookIssueFormData>>; books: Book[]; students: typeof studentsData; teachers: typeof teachersData }) {
+import type { StudentDto } from '@/lib/api/types/students'
+import type { TeacherDto } from '@/lib/api/types/teachers'
+
+function IssueForm({ form, books, students, teachers }: { form: ReturnType<typeof useForm<BookIssueFormData>>; books: Book[]; students: StudentDto[]; teachers: TeacherDto[] }) {
   const { register, formState: { errors }, setValue, watch } = form
   const memberType = watch('memberType')
   const members = memberType === 'student' ? students : teachers

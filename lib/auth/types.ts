@@ -6,6 +6,7 @@ export type AuthSession = {
   name: string
   email: string
   tenantId?: string
+  permissions?: string[]
 }
 
 export type AuthUser = AuthSession

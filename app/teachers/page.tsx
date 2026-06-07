@@ -32,14 +32,23 @@ import { DataTable, StatusBadge, ActionMenu } from '@/components/shared/data-tab
 import { SlideOver } from '@/components/shared/slide-over'
 import { ConfirmDialog } from '@/components/shared/confirm-dialog'
 import { PageHeader, StatCard, FormSection, FormField, Tabs } from '@/components/shared/page-components'
-import { teachersData } from '@/lib/erp-data'
 import { teacherSchema, type TeacherFormData } from '@/lib/schemas'
 import type { ColumnDef } from '@tanstack/react-table'
+import type { TeacherDto } from '@/lib/api/types/teachers'
+import { useTeachers, useCreateTeacher, useUpdateTeacher } from '@/hooks/api'
+import { Skeleton } from '@/components/ui/skeleton'
 
-type Teacher = (typeof teachersData)[0]
+type Teacher = TeacherDto
 
 export default function TeachersPage() {
-  const [teachers, setTeachers] = React.useState(teachersData)
+  const { data: teachersResponse, isLoading, isError, error, refetch } = useTeachers({
+    page: 1,
+    pageSize: 100,
+  })
+  const createTeacher = useCreateTeacher()
+  const updateTeacher = useUpdateTeacher()
+  const teachers = teachersResponse?.items ?? []
+
   const [activeTab, setActiveTab] = React.useState('all')
   const [showAddForm, setShowAddForm] = React.useState(false)
   const [showEditForm, setShowEditForm] = React.useState(false)
@@ -75,60 +84,56 @@ export default function TeachersPage() {
 
   const departments = [...new Set(teachers.map((t) => t.department))]
 
-  const handleAddTeacher = (data: TeacherFormData) => {
-    const newTeacher = {
-      id: String(teachers.length + 1),
-      firstName: data.firstName,
-      lastName: data.lastName,
-      name: `${data.firstName} ${data.lastName}`,
-      employeeId: data.employeeId,
-      department: data.department,
-      subject: data.subject,
-      qualification: data.qualification,
-      experience: data.experience,
-      email: data.email,
-      phone: data.phone,
-      salary: data.salary,
-      joiningDate: data.joiningDate,
-      status: data.status,
-      classes: [],
-      avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${data.firstName}`,
+  const handleAddTeacher = async (data: TeacherFormData) => {
+    try {
+      await createTeacher.mutateAsync({
+        firstName: data.firstName,
+        lastName: data.lastName,
+        email: data.email,
+        phone: data.phone,
+        employeeId: data.employeeId,
+        department: data.department,
+        subject: data.subject,
+        qualification: data.qualification,
+        experience: data.experience,
+        joiningDate: data.joiningDate,
+        salary: data.salary,
+        status: data.status,
+      })
+      setShowAddForm(false)
+      form.reset()
+    } catch {
+      // mutation error
     }
-    setTeachers([...teachers, newTeacher])
-    setShowAddForm(false)
-    form.reset()
   }
 
-  const handleEditTeacher = (data: TeacherFormData) => {
+  const handleEditTeacher = async (data: TeacherFormData) => {
     if (!selectedTeacher) return
-    setTeachers(
-      teachers.map((t) =>
-        t.id === selectedTeacher.id
-          ? {
-              ...t,
-              firstName: data.firstName,
-              lastName: data.lastName,
-              name: `${data.firstName} ${data.lastName}`,
-              email: data.email,
-              phone: data.phone,
-              department: data.department,
-              subject: data.subject,
-              qualification: data.qualification,
-              experience: data.experience,
-              salary: data.salary,
-              status: data.status,
-            }
-          : t
-      )
-    )
-    setShowEditForm(false)
-    setSelectedTeacher(null)
-    form.reset()
+    try {
+      await updateTeacher.mutateAsync({
+        id: selectedTeacher.id,
+        body: {
+          firstName: data.firstName,
+          lastName: data.lastName,
+          email: data.email,
+          phone: data.phone,
+          department: data.department,
+          subject: data.subject,
+          qualification: data.qualification,
+          experience: data.experience,
+          salary: data.salary,
+          status: data.status,
+        },
+      })
+      setShowEditForm(false)
+      setSelectedTeacher(null)
+      form.reset()
+    } catch {
+      // mutation error
+    }
   }
 
   const handleDeleteTeacher = () => {
-    if (!selectedTeacher) return
-    setTeachers(teachers.filter((t) => t.id !== selectedTeacher.id))
     setShowDeleteConfirm(false)
     setSelectedTeacher(null)
   }
@@ -233,6 +238,35 @@ export default function TeachersPage() {
     active: teachers.filter((t) => t.status === 'active').length,
     onLeave: teachers.filter((t) => t.status === 'on-leave').length,
     totalSalary: teachers.reduce((acc, t) => acc + t.salary, 0),
+  }
+
+  if (isLoading) {
+    return (
+      <DashboardLayout>
+        <div className="space-y-6">
+          <Skeleton className="h-10 w-64" />
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <Skeleton key={i} className="h-24 rounded-xl" />
+            ))}
+          </div>
+          <Skeleton className="h-96 rounded-xl" />
+        </div>
+      </DashboardLayout>
+    )
+  }
+
+  if (isError) {
+    return (
+      <DashboardLayout>
+        <div className="flex flex-col items-center justify-center gap-4 py-20">
+          <p className="text-muted-foreground">
+            {error instanceof Error ? error.message : 'Failed to load teachers from EduSync.'}
+          </p>
+          <Button onClick={() => refetch()}>Retry</Button>
+        </div>
+      </DashboardLayout>
+    )
   }
 
   return (

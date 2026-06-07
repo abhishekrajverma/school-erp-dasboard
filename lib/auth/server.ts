@@ -50,8 +50,16 @@ export async function getTenantIdFromRequest(
   return jar.get(TENANT_COOKIE)?.value
 }
 
+async function resolveTenantIdForServerCall(
+  request?: NextRequest,
+): Promise<string> {
+  const fromRequest = await getTenantIdFromRequest(request)
+  return fromRequest ?? env.defaultTenantId
+}
+
 export async function resolveUserFromToken(
   token: string | undefined,
+  request?: NextRequest,
 ): Promise<AuthUser | null> {
   if (!token) return null
 
@@ -68,7 +76,8 @@ export async function resolveUserFromToken(
   }
 
   try {
-    return await serverApi<AuthUser>('/auth/me', { accessToken: token })
+    const tenantId = await resolveTenantIdForServerCall(request)
+    return await serverApi<AuthUser>('/auth/me', { accessToken: token, tenantId })
   } catch {
     return null
   }
@@ -107,6 +116,7 @@ export async function loginWithCredentials(
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email, password }),
+    tenantId: env.defaultTenantId,
   })
 
   return {

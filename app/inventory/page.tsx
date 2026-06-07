@@ -11,15 +11,19 @@ import { DataTable, StatusBadge, ActionMenu } from '@/components/shared/data-tab
 import { SlideOver } from '@/components/shared/slide-over'
 import { ConfirmDialog } from '@/components/shared/confirm-dialog'
 import { PageHeader, StatCard, Tabs, FormSection, FormField } from '@/components/shared/page-components'
-import { inventoryData } from '@/lib/erp-data'
+import { ApiPageLoading, ApiPageError } from '@/components/shared/api-page-state'
+import type { InventoryItemDto } from '@/lib/api/types/resources'
+import { useInventory } from '@/hooks/api'
+import { isApiError } from '@/lib/api/interceptors/errors'
 import { exportToCsv } from '@/lib/export'
-import { useToast } from '@/hooks/use-toast'
+import { toast } from 'sonner'
 
-type Item = (typeof inventoryData)[0]
+type Item = InventoryItemDto
 
 export default function InventoryPage() {
-  const { toast } = useToast()
-  const [items, setItems] = React.useState(inventoryData)
+  const { data, isLoading, isError, error, refetch } = useInventory({ page: 1, pageSize: 100 })
+  const items = data?.items ?? []
+
   const [tab, setTab] = React.useState('all')
   const [showForm, setShowForm] = React.useState(false)
   const [showDelete, setShowDelete] = React.useState(false)
@@ -32,22 +36,28 @@ export default function InventoryPage() {
     { accessorKey: 'name', header: 'Item', cell: ({ row }) => <div><p className="font-medium">{row.original.name}</p><p className="text-xs text-muted-foreground font-mono">{row.original.sku}</p></div> },
     { accessorKey: 'category', header: 'Category', cell: ({ row }) => <Badge variant="secondary">{row.original.category}</Badge> },
     { accessorKey: 'quantity', header: 'Stock', cell: ({ row }) => <span className={row.original.quantity <= row.original.minStock ? 'text-destructive font-medium' : ''}>{row.original.quantity} {row.original.unit}</span> },
-    { accessorKey: 'location', header: 'Location' },
+    { accessorKey: 'location', header: 'Location', cell: ({ row }) => row.original.location ?? '—' },
     { accessorKey: 'status', header: 'Status', cell: ({ row }) => <StatusBadge status={row.original.status === 'in-stock' ? 'active' : 'pending'} /> },
     { id: 'actions', cell: ({ row }) => <ActionMenu actions={[
-      { label: 'Restock', onClick: () => { setItems(items.map((i) => i.id === row.original.id ? { ...i, quantity: i.quantity + 10, status: 'in-stock' as const } : i)); toast({ title: 'Stock updated' }) } },
-      { label: 'Edit', onClick: () => { setSelected(row.original); setForm({ name: row.original.name, category: row.original.category, sku: row.original.sku, quantity: row.original.quantity, minStock: row.original.minStock, unit: row.original.unit, location: row.original.location }); setShowForm(true) } },
+      { label: 'Restock', onClick: () => toast.info('Inventory update API is not available on the backend yet') },
+      { label: 'Edit', onClick: () => { setSelected(row.original); setForm({ name: row.original.name, category: row.original.category, sku: row.original.sku, quantity: row.original.quantity, minStock: row.original.minStock, unit: row.original.unit, location: row.original.location ?? '' }); setShowForm(true) } },
       { label: 'Delete', onClick: () => { setSelected(row.original); setShowDelete(true) }, destructive: true },
     ]} /> },
   ]
 
   const handleSave = () => {
-    const status = form.quantity <= form.minStock ? 'low-stock' as const : 'in-stock' as const
-    const record = { id: selected?.id ?? String(items.length + 1), ...form, status, lastRestocked: new Date().toISOString().split('T')[0] }
-    if (selected) setItems(items.map((i) => i.id === selected.id ? record : i))
-    else setItems([...items, record])
+    toast.info('Inventory write API is not available on the backend yet')
     setShowForm(false)
-    toast({ title: 'Item saved' })
+  }
+
+  if (isLoading) return <ApiPageLoading rows={3} />
+  if (isError) {
+    return (
+      <ApiPageError
+        message={isApiError(error) ? error.message : 'Failed to load inventory from EduSync.'}
+        onRetry={() => refetch()}
+      />
+    )
   }
 
   return (
@@ -79,7 +89,7 @@ export default function InventoryPage() {
         </FormSection>
       </SlideOver>
 
-      <ConfirmDialog open={showDelete} onClose={() => setShowDelete(false)} onConfirm={() => { if (selected) { setItems(items.filter((i) => i.id !== selected.id)); setShowDelete(false) } }} title="Delete Item" description="Remove from inventory?" confirmText="Delete" variant="destructive" />
+      <ConfirmDialog open={showDelete} onClose={() => setShowDelete(false)} onConfirm={() => { setShowDelete(false); toast.info('Inventory delete API is not available on the backend yet') }} title="Delete Item" description="Remove from inventory?" confirmText="Delete" variant="destructive" />
     </DashboardLayout>
   )
 }

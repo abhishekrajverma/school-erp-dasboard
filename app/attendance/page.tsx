@@ -17,36 +17,28 @@ import { DataTable, StatusBadge, ActionMenu } from '@/components/shared/data-tab
 import { SlideOver } from '@/components/shared/slide-over'
 import { ConfirmDialog } from '@/components/shared/confirm-dialog'
 import { PageHeader, StatCard, Tabs, FormSection, FormField } from '@/components/shared/page-components'
-import { attendanceRecordsData, attendanceSummary, studentsData } from '@/lib/erp-data'
+import { ApiPageLoading, ApiPageError } from '@/components/shared/api-page-state'
 import { attendanceSchema, type AttendanceFormData } from '@/lib/schemas'
+import type { AttendanceRecordDto } from '@/lib/api/types/attendance'
 import { exportToCsv } from '@/lib/export'
-import { useToast } from '@/hooks/use-toast'
+import { useAttendanceRecords, useDashboard, useStudents } from '@/hooks/api'
+import { isApiError } from '@/lib/api/interceptors/errors'
+import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 
-type AttendanceRecord = (typeof attendanceRecordsData)[0]
-
-const heatmapMonths = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun']
-const heatmapData = heatmapMonths.map((month, mi) =>
-  Array.from({ length: 20 }, (_, di) => ({
-    month,
-    day: di + 1,
-    attendance: 72 + ((mi * 7 + di * 3) % 28),
-  }))
-).flat()
-
-const studentSummary = studentsData.map((s) => ({
-  id: s.id,
-  name: s.name,
-  class: s.class,
-  present: Math.round((s.attendance / 100) * 24),
-  absent: Math.round(((100 - s.attendance) / 100) * 24),
-  late: s.attendance > 90 ? 1 : 2,
-  percentage: s.attendance,
-}))
+type AttendanceRecord = AttendanceRecordDto
 
 export default function AttendancePage() {
-  const { toast } = useToast()
-  const [records, setRecords] = React.useState(attendanceRecordsData)
+  const { data, isLoading, isError, error, refetch } = useAttendanceRecords({ page: 1, pageSize: 100 })
+  const { data: dashboardData } = useDashboard()
+  const { data: studentsData } = useStudents({ page: 1, pageSize: 100 })
+  const records = data?.items ?? []
+  const attendanceSummary = dashboardData?.attendanceSummary ?? {
+    today: { present: 0, absent: 0, late: 0, total: 0 },
+    thisWeek: { avgAttendance: 0, improvement: 0 },
+    thisMonth: { avgAttendance: 0, workingDays: 0 },
+  }
+
   const [entityTab, setEntityTab] = React.useState<'student' | 'teacher'>('student')
   const [showAdd, setShowAdd] = React.useState(false)
   const [showEdit, setShowEdit] = React.useState(false)
@@ -60,40 +52,42 @@ export default function AttendancePage() {
 
   const filtered = records.filter((r) => r.entityType === entityTab)
 
-  const handleAdd = (data: AttendanceFormData) => {
-    const student = studentsData.find((s) => s.id === data.entityId)
-    const newRecord: AttendanceRecord = {
-      id: String(records.length + 1),
-      entityType: data.entityType,
-      entityId: data.entityId,
-      name: student?.name ?? 'Unknown',
-      class: student?.class ?? '—',
-      date: data.date,
-      status: data.status,
-      checkIn: data.checkInTime ?? '08:45',
-      checkOut: data.checkOutTime ?? '03:30',
-      remarks: data.remarks ?? '',
+  const studentSummary = React.useMemo(() => {
+    const byStudent = new Map<string, { id: string; name: string; class: string; present: number; absent: number; late: number }>()
+    for (const r of records.filter((x) => x.entityType === 'student')) {
+      const existing = byStudent.get(r.entityId) ?? { id: r.entityId, name: r.name, class: r.class, present: 0, absent: 0, late: 0 }
+      if (r.status === 'present') existing.present++
+      else if (r.status === 'late') existing.late++
+      else existing.absent++
+      byStudent.set(r.entityId, existing)
     }
-    setRecords([...records, newRecord])
+    return [...byStudent.values()].map((s) => {
+      const total = s.present + s.absent + s.late
+      return { ...s, percentage: total ? Math.round((s.present / total) * 100) : 0 }
+    })
+  }, [records])
+
+  const heatmapData = (dashboardData?.studentAttendance ?? []).flatMap((day) => [
+    { month: day.day.slice(0, 3), day: 1, attendance: day.present + day.absent > 0 ? Math.round((day.present / (day.present + day.absent)) * 100) : 0 },
+  ])
+  const heatmapMonths = [...new Set(heatmapData.map((d) => d.month))]
+
+  const handleAdd = () => {
+    toast.info('Attendance write API is not available on the backend yet')
     setShowAdd(false)
     form.reset()
-    toast({ title: 'Attendance marked' })
   }
 
-  const handleEdit = (data: AttendanceFormData) => {
-    if (!selected) return
-    setRecords(records.map((r) => r.id === selected.id ? { ...r, status: data.status, date: data.date, remarks: data.remarks ?? '', checkIn: data.checkInTime ?? r.checkIn, checkOut: data.checkOutTime ?? r.checkOut } : r))
+  const handleEdit = () => {
+    toast.info('Attendance write API is not available on the backend yet')
     setShowEdit(false)
     setSelected(null)
-    toast({ title: 'Attendance updated' })
   }
 
   const handleDelete = () => {
-    if (!selected) return
-    setRecords(records.filter((r) => r.id !== selected.id))
+    toast.info('Attendance delete API is not available on the backend yet')
     setShowDelete(false)
     setSelected(null)
-    toast({ title: 'Record deleted', variant: 'destructive' })
   }
 
   const columns: ColumnDef<AttendanceRecord>[] = [
@@ -116,7 +110,7 @@ export default function AttendancePage() {
       id: 'actions',
       cell: ({ row }) => (
         <ActionMenu actions={[
-          { label: 'Edit', onClick: () => { setSelected(row.original); form.reset({ entityType: row.original.entityType, entityId: row.original.entityId, date: row.original.date, status: row.original.status as AttendanceFormData['status'], remarks: row.original.remarks }); setShowEdit(true) } },
+          { label: 'Edit', onClick: () => { setSelected(row.original); form.reset({ entityType: row.original.entityType as AttendanceFormData['entityType'], entityId: row.original.entityId, date: row.original.date, status: row.original.status as AttendanceFormData['status'], remarks: row.original.remarks ?? '' }); setShowEdit(true) } },
           { label: 'Delete', onClick: () => { setSelected(row.original); setShowDelete(true) }, destructive: true },
         ]} />
       ),
@@ -128,6 +122,16 @@ export default function AttendancePage() {
     if (pct >= 85) return 'bg-green-400'
     if (pct >= 75) return 'bg-yellow-400'
     return 'bg-orange-400'
+  }
+
+  if (isLoading) return <ApiPageLoading />
+  if (isError) {
+    return (
+      <ApiPageError
+        message={isApiError(error) ? error.message : 'Failed to load attendance from EduSync.'}
+        onRetry={() => refetch()}
+      />
+    )
   }
 
   return (
@@ -145,21 +149,23 @@ export default function AttendancePage() {
           <StatCard title="Monthly Avg." value={`${attendanceSummary.thisMonth.avgAttendance}%`} change={`+${attendanceSummary.thisWeek.improvement}% this week`} changeType="positive" icon={TrendingUp} />
         </motion.div>
 
-        <Card>
-          <CardHeader><CardTitle className="text-base">Attendance Heatmap</CardTitle><CardDescription>Daily attendance % (last 6 months)</CardDescription></CardHeader>
-          <CardContent className="space-y-2 overflow-x-auto">
-            {heatmapMonths.map((month) => (
-              <div key={month} className="flex items-center gap-2">
-                <span className="w-8 text-xs text-muted-foreground">{month}</span>
-                <div className="flex gap-0.5">
-                  {heatmapData.filter((d) => d.month === month).map((d) => (
-                    <div key={`${month}-${d.day}`} className={cn('h-3 w-3 rounded-sm', getHeatColor(d.attendance))} title={`${d.attendance}%`} />
-                  ))}
+        {heatmapMonths.length > 0 && (
+          <Card>
+            <CardHeader><CardTitle className="text-base">Attendance Heatmap</CardTitle><CardDescription>Daily attendance from dashboard data</CardDescription></CardHeader>
+            <CardContent className="space-y-2 overflow-x-auto">
+              {heatmapMonths.map((month) => (
+                <div key={month} className="flex items-center gap-2">
+                  <span className="w-8 text-xs text-muted-foreground">{month}</span>
+                  <div className="flex gap-0.5">
+                    {heatmapData.filter((d) => d.month === month).map((d, i) => (
+                      <div key={`${month}-${i}`} className={cn('h-3 w-3 rounded-sm', getHeatColor(d.attendance))} title={`${d.attendance}%`} />
+                    ))}
+                  </div>
                 </div>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
+              ))}
+            </CardContent>
+          </Card>
+        )}
 
         <Tabs tabs={[
           { id: 'student', label: 'Student Attendance', count: records.filter((r) => r.entityType === 'student').length },
@@ -168,19 +174,21 @@ export default function AttendancePage() {
 
         <DataTable columns={columns} data={filtered} searchKey="name" searchPlaceholder="Search by name..." showRowSelection onExport={() => exportToCsv(filtered, 'attendance')} />
 
-        <Card>
-          <CardHeader><CardTitle className="text-base">Monthly Student Summary</CardTitle></CardHeader>
-          <CardContent>
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              {studentSummary.slice(0, 8).map((s) => (
-                <div key={s.id} className="flex items-center justify-between rounded-lg border border-border p-3">
-                  <div><p className="text-sm font-medium">{s.name}</p><Badge variant="secondary" className="mt-1">{s.class}</Badge></div>
-                  <div className="text-right"><p className="text-lg font-bold">{s.percentage}%</p><p className="text-xs text-muted-foreground">{s.present}P · {s.absent}A</p></div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+        {studentSummary.length > 0 && (
+          <Card>
+            <CardHeader><CardTitle className="text-base">Monthly Student Summary</CardTitle></CardHeader>
+            <CardContent>
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                {studentSummary.slice(0, 8).map((s) => (
+                  <div key={s.id} className="flex items-center justify-between rounded-lg border border-border p-3">
+                    <div><p className="text-sm font-medium">{s.name}</p><Badge variant="secondary" className="mt-1">{s.class}</Badge></div>
+                    <div className="text-right"><p className="text-lg font-bold">{s.percentage}%</p><p className="text-xs text-muted-foreground">{s.present}P · {s.absent}A</p></div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
 
       <SlideOver open={showAdd || showEdit} onClose={() => { setShowAdd(false); setShowEdit(false); setSelected(null); form.reset() }} title={showEdit ? 'Edit Attendance' : 'Mark Attendance'} size="md" footer={<div className="flex justify-end gap-3"><Button variant="outline" onClick={() => { setShowAdd(false); setShowEdit(false) }}>Cancel</Button><Button onClick={form.handleSubmit(showEdit ? handleEdit : handleAdd)}>Save</Button></div>}>
@@ -188,7 +196,7 @@ export default function AttendancePage() {
           <FormField label="Student / Teacher">
             <Select value={form.watch('entityId')} onValueChange={(v) => form.setValue('entityId', v)}>
               <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
-              <SelectContent>{studentsData.map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
+              <SelectContent>{(studentsData?.items ?? []).map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
             </Select>
           </FormField>
           <FormField label="Date"><Input type="date" {...form.register('date')} /></FormField>

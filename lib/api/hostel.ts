@@ -1,7 +1,4 @@
-/**
- * Hostel API — `/api/hostel/*`
- */
+import { createResourceApi } from './create-resource-api'
+import type { HostelRoomDto } from './types/resources'
 
-export const hostelApi = {
-  // rooms, allocations, ...
-}
+export const hostelApi = createResourceApi<HostelRoomDto>('/hostel/rooms')

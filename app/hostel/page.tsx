@@ -6,21 +6,24 @@ import type { ColumnDef } from '@tanstack/react-table'
 import { DashboardLayout } from '@/components/dashboard/layout'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Badge } from '@/components/ui/badge'
 import { DataTable, StatusBadge, ActionMenu } from '@/components/shared/data-table'
 import { SlideOver } from '@/components/shared/slide-over'
 import { ConfirmDialog } from '@/components/shared/confirm-dialog'
 import { PageHeader, StatCard, FormSection, FormField } from '@/components/shared/page-components'
-import { hostelRoomsData } from '@/lib/erp-data'
+import { ApiPageLoading, ApiPageError } from '@/components/shared/api-page-state'
 import { formatCurrency } from '@/lib/format'
 import { exportToCsv } from '@/lib/export'
-import { useToast } from '@/hooks/use-toast'
+import type { HostelRoomDto } from '@/lib/api/types/resources'
+import { useHostelRooms } from '@/hooks/api'
+import { isApiError } from '@/lib/api/interceptors/errors'
+import { toast } from 'sonner'
 
-type Room = (typeof hostelRoomsData)[0]
+type Room = HostelRoomDto
 
 export default function HostelPage() {
-  const { toast } = useToast()
-  const [rooms, setRooms] = React.useState(hostelRoomsData)
+  const { data, isLoading, isError, error, refetch } = useHostelRooms({ page: 1, pageSize: 100 })
+  const rooms = data?.items ?? []
+
   const [showForm, setShowForm] = React.useState(false)
   const [showDelete, setShowDelete] = React.useState(false)
   const [selected, setSelected] = React.useState<Room | null>(null)
@@ -31,21 +34,28 @@ export default function HostelPage() {
     { accessorKey: 'block', header: 'Block' },
     { accessorKey: 'floor', header: 'Floor' },
     { accessorKey: 'occupied', header: 'Occupancy', cell: ({ row }) => <span>{row.original.occupied}/{row.original.capacity}</span> },
-    { accessorKey: 'warden', header: 'Warden' },
+    { accessorKey: 'warden', header: 'Warden', cell: ({ row }) => row.original.warden ?? '—' },
     { accessorKey: 'monthlyFee', header: 'Fee/mo', cell: ({ row }) => formatCurrency(row.original.monthlyFee) },
     { accessorKey: 'status', header: 'Status', cell: ({ row }) => <StatusBadge status={row.original.status === 'full' ? 'inactive' : 'active'} /> },
     { id: 'actions', cell: ({ row }) => <ActionMenu actions={[
-      { label: 'Edit', onClick: () => { setSelected(row.original); setForm({ roomNo: row.original.roomNo, block: row.original.block, capacity: row.original.capacity, floor: row.original.floor, warden: row.original.warden, monthlyFee: row.original.monthlyFee }); setShowForm(true) } },
+      { label: 'Edit', onClick: () => { setSelected(row.original); setForm({ roomNo: row.original.roomNo, block: row.original.block, capacity: row.original.capacity, floor: row.original.floor, warden: row.original.warden ?? '', monthlyFee: row.original.monthlyFee }); setShowForm(true) } },
       { label: 'Delete', onClick: () => { setSelected(row.original); setShowDelete(true) }, destructive: true },
     ]} /> },
   ]
 
   const handleSave = () => {
-    const record = { id: selected?.id ?? String(rooms.length + 1), ...form, occupied: selected?.occupied ?? 0, status: (form.capacity === (selected?.occupied ?? 0) ? 'full' : 'available') as 'full' | 'available' }
-    if (selected) setRooms(rooms.map((r) => r.id === selected.id ? record : r))
-    else setRooms([...rooms, record])
+    toast.info('Hostel write API is not available on the backend yet')
     setShowForm(false)
-    toast({ title: 'Room saved' })
+  }
+
+  if (isLoading) return <ApiPageLoading rows={3} />
+  if (isError) {
+    return (
+      <ApiPageError
+        message={isApiError(error) ? error.message : 'Failed to load hostel rooms from EduSync.'}
+        onRetry={() => refetch()}
+      />
+    )
   }
 
   return (
@@ -74,7 +84,7 @@ export default function HostelPage() {
         </FormSection>
       </SlideOver>
 
-      <ConfirmDialog open={showDelete} onClose={() => setShowDelete(false)} onConfirm={() => { if (selected) { setRooms(rooms.filter((r) => r.id !== selected.id)); setShowDelete(false) } }} title="Delete Room" description="Remove this room?" confirmText="Delete" variant="destructive" />
+      <ConfirmDialog open={showDelete} onClose={() => setShowDelete(false)} onConfirm={() => { setShowDelete(false); toast.info('Hostel delete API is not available on the backend yet') }} title="Delete Room" description="Remove this room?" confirmText="Delete" variant="destructive" />
     </DashboardLayout>
   )
 }

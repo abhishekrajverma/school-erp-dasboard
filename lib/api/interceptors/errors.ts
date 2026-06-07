@@ -29,7 +29,18 @@ export async function parseApiError(response: Response): Promise<ApiError> {
 }
 
 export function isApiError(error: unknown): error is ApiError {
-  return error instanceof ApiError
+  if (error instanceof ApiError) return true
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    (error as ApiError).name === 'ApiError' &&
+    typeof (error as ApiError).status === 'number'
+  )
+}
+
+export function getApiErrorStatus(error: unknown): number | undefined {
+  if (!isApiError(error)) return undefined
+  return error.status
 }
 
 export function isUnauthorized(error: unknown): boolean {

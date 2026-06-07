@@ -49,10 +49,15 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { PageHeader, StatCard, FormSection, FormField, Tabs } from '@/components/shared/page-components'
-import { teachersData, leaveRequestsData, type LeaveRequest } from '@/lib/erp-data'
+import { ApiPageLoading, ApiPageError } from '@/components/shared/api-page-state'
+import type { LeaveRequestDto } from '@/lib/api/types/resources'
+import type { TeacherDto } from '@/lib/api/types/teachers'
 import { formatDate } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import { leaveSchema, type LeaveFormData } from '@/lib/schemas'
+import { useLeaveRequests, useTeachers } from '@/hooks/api'
+import { isApiError } from '@/lib/api/interceptors/errors'
+import { toast } from 'sonner'
 import type { ColumnDef } from '@tanstack/react-table'
 
 const LEAVE_TYPES_REQUIRING_PROOF = ['sick', 'maternity', 'paternity'] as const
@@ -73,9 +78,14 @@ function resetLeaveForm(
   setProofError(null)
 }
 
+type LeaveRequest = LeaveRequestDto
+
 export default function HRPage() {
-  const [employees] = React.useState(teachersData)
-  const [leaveRequests, setLeaveRequests] = React.useState(leaveRequestsData)
+  const { data: leaveData, isLoading, isError, error, refetch } = useLeaveRequests({ page: 1, pageSize: 100 })
+  const { data: teachersData } = useTeachers({ page: 1, pageSize: 100 })
+  const leaveRequests = leaveData?.items ?? []
+  const employees = teachersData?.items ?? []
+
   const [activeTab, setActiveTab] = React.useState('all')
   const [showAddLeave, setShowAddLeave] = React.useState(false)
   const [showApproveConfirm, setShowApproveConfirm] = React.useState(false)
@@ -108,74 +118,20 @@ export default function HRPage() {
     return req.status === activeTab
   })
 
-  const handleAddLeave = (data: LeaveFormData) => {
-    const employee = employees.find((e) => e.id === data.employeeId)
-    if (!employee) return
-
-    const requiresProof = LEAVE_TYPES_REQUIRING_PROOF.includes(
-      data.leaveType as (typeof LEAVE_TYPES_REQUIRING_PROOF)[number],
-    )
-    if (requiresProof && !proofDocument) {
-      setProofError('Upload proof document (medical certificate, prescription, etc.)')
-      return
-    }
-
-    const start = new Date(data.startDate)
-    const end = new Date(data.endDate)
-    const days = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1
-
-    const newRequest: LeaveRequest = {
-      id: String(leaveRequests.length + 1),
-      employeeId: data.employeeId,
-      employeeName: employee.name,
-      department: employee.department,
-      leaveType: data.leaveType,
-      startDate: data.startDate,
-      endDate: data.endDate,
-      days,
-      reason: data.reason,
-      status: 'pending',
-      appliedOn: new Date().toISOString().split('T')[0],
-      approvedBy: null,
-      approvedOn: null,
-      proofDocument: proofDocument
-        ? {
-            name: proofDocument.name,
-            size: proofDocument.size,
-            type: proofDocument.type,
-            lastModified: proofDocument.lastModified,
-            previewUrl: proofDocument.previewUrl,
-          }
-        : null,
-    }
-
-    setLeaveRequests([...leaveRequests, newRequest])
+  const handleAddLeave = (_data: LeaveFormData) => {
+    toast.info('Leave write API is not available on the backend yet')
     setShowAddLeave(false)
     resetLeaveForm(form, setProofDocument, setProofError)
   }
 
   const handleApprove = () => {
-    if (!selectedRequest) return
-    setLeaveRequests(
-      leaveRequests.map((r): LeaveRequest =>
-        r.id === selectedRequest.id
-          ? { ...r, status: 'approved', approvedBy: 'Admin', approvedOn: new Date().toISOString().split('T')[0] }
-          : r,
-      ),
-    )
+    toast.info('Leave approval API is not available on the backend yet')
     setShowApproveConfirm(false)
     setSelectedRequest(null)
   }
 
   const handleReject = () => {
-    if (!selectedRequest) return
-    setLeaveRequests(
-      leaveRequests.map((r): LeaveRequest =>
-        r.id === selectedRequest.id
-          ? { ...r, status: 'rejected', approvedBy: 'Admin', approvedOn: new Date().toISOString().split('T')[0] }
-          : r,
-      ),
-    )
+    toast.info('Leave rejection API is not available on the backend yet')
     setShowRejectConfirm(false)
     setSelectedRequest(null)
   }
@@ -249,7 +205,7 @@ export default function HRPage() {
     },
   ]
 
-  const employeeColumns: ColumnDef<typeof teachersData[0]>[] = [
+  const employeeColumns: ColumnDef<TeacherDto>[] = [
     {
       accessorKey: 'name',
       header: 'Employee',
@@ -299,6 +255,16 @@ export default function HRPage() {
     activeEmployees: employees.filter((e) => e.status === 'active').length,
     pendingLeaves: leaveRequests.filter((r) => r.status === 'pending').length,
     approvedLeaves: leaveRequests.filter((r) => r.status === 'approved').length,
+  }
+
+  if (isLoading) return <ApiPageLoading />
+  if (isError) {
+    return (
+      <ApiPageError
+        message={isApiError(error) ? error.message : 'Failed to load HR data from EduSync.'}
+        onRetry={() => refetch()}
+      />
+    )
   }
 
   return (
@@ -573,15 +539,11 @@ function LeaveDetailDialog({
                   <FileText className="h-5 w-5 text-primary" />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium">{request.proofDocument.name}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {formatFileSize(request.proofDocument.size)}
-                    {request.proofDocument.type === 'application/pdf' ? ' · PDF' : ' · Image'}
-                  </p>
+                  <p className="truncate text-sm font-medium">{request.proofDocument}</p>
                 </div>
-                {request.proofDocument.previewUrl && (
+                {request.proofDocument.startsWith('http') && (
                   <Button variant="outline" size="sm" className="shrink-0 rounded-full" asChild>
-                    <a href={request.proofDocument.previewUrl} target="_blank" rel="noopener noreferrer">
+                    <a href={request.proofDocument} target="_blank" rel="noopener noreferrer">
                       View
                     </a>
                   </Button>
@@ -609,7 +571,7 @@ function LeaveForm({
   onProofChange,
 }: {
   form: ReturnType<typeof useForm<LeaveFormData>>
-  employees: typeof teachersData
+  employees: TeacherDto[]
   proofDocument: UploadedFileMeta | null
   proofError: string | null
   onProofChange: (file: UploadedFileMeta | null) => void

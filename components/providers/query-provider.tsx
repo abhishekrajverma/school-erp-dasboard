@@ -1,12 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import {
-  QueryClient,
-  QueryClientProvider,
-  isServer,
-} from '@tanstack/react-query'
-import { reportError } from '@/lib/observability/report-error'
+import { QueryClient, QueryClientProvider, isServer } from '@tanstack/react-query'
 
 function makeQueryClient() {
   return new QueryClient({
@@ -18,7 +13,7 @@ function makeQueryClient() {
         refetchOnWindowFocus: process.env.NODE_ENV === 'production',
       },
       mutations: {
-        onError: (error) => reportError(error),
+        // api() already reports HTTP errors with route context
       },
     },
   })

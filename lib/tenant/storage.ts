@@ -1,5 +1,6 @@
 import type { Tenant } from './types'
 import { DEFAULT_DEMO_TENANT, TENANT_STORAGE_KEY } from './constants'
+import { env } from '@/lib/config/env'
 
 export function loadTenantFromStorage(): Tenant | null {
   if (typeof window === 'undefined') return null
@@ -25,5 +26,10 @@ export function clearTenantFromStorage(): void {
 }
 
 export function getInitialTenant(): Tenant {
-  return loadTenantFromStorage() ?? { ...DEFAULT_DEMO_TENANT }
+  const stored = loadTenantFromStorage()
+  if (stored) return stored
+  return {
+    ...DEFAULT_DEMO_TENANT,
+    id: env.defaultTenantId,
+  }
 }

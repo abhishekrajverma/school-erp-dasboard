@@ -1,7 +1,4 @@
-/**
- * Inventory API — `/api/inventory/*`
- */
+import { createResourceApi } from './create-resource-api'
+import type { InventoryItemDto } from './types/resources'
 
-export const inventoryApi = {
-  // items, stock, issues, ...
-}
+export const inventoryApi = createResourceApi<InventoryItemDto>('/inventory/items')

@@ -6,7 +6,7 @@ import {
 } from './interceptors/correlation'
 import { ApiError, parseApiError } from './interceptors/errors'
 import { applyTenantHeaders } from './interceptors/tenant'
-import { reportError } from '@/lib/observability/report-error'
+import { reportError, shouldReportError } from '@/lib/observability/report-error'
 
 export { ApiError } from './interceptors/errors'
 
@@ -54,10 +54,12 @@ export async function api<T>(path: string, options: ApiRequestOptions = {}): Pro
 
   if (!response.ok) {
     const error = await parseApiError(response)
-    reportError(error, {
-      correlationId: headers.get(CORRELATION_HEADER) ?? undefined,
-      route: path,
-    })
+    if (shouldReportError(error)) {
+      reportError(error, {
+        correlationId: headers.get(CORRELATION_HEADER) ?? undefined,
+        route: path,
+      })
+    }
     throw error
   }
 

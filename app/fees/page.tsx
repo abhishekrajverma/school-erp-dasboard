@@ -46,7 +46,8 @@ import { DataTable, StatusBadge, ActionMenu } from '@/components/shared/data-tab
 import { SlideOver } from '@/components/shared/slide-over'
 import { ConfirmDialog } from '@/components/shared/confirm-dialog'
 import { PageHeader, StatCard, Tabs, FormSection, FormField } from '@/components/shared/page-components'
-import { feeRecordsData, monthlyFeeCollection, studentsData, type FeeRecord } from '@/lib/erp-data'
+import { ApiPageLoading, ApiPageError } from '@/components/shared/api-page-state'
+import type { FeeRecordDto } from '@/lib/api/types/fees'
 import {
   feeRecordSchema,
   multiFeePaymentSchema,
@@ -56,6 +57,8 @@ import {
 import { formatCurrency } from '@/lib/format'
 import { exportToCsv } from '@/lib/export'
 import { useToast } from '@/hooks/use-toast'
+import { useFees, useDashboard, useStudents } from '@/hooks/api'
+import { isApiError } from '@/lib/api/interceptors/errors'
 import { MultiFeePaymentForm } from '@/components/fees/multi-fee-payment-form'
 import {
   buildDefaultFeeLines,
@@ -63,23 +66,37 @@ import {
 } from '@/lib/fees/calculations'
 import { SCHOOL_FEE_TYPES } from '@/lib/fees/constants'
 
-const outstandingByClass = [
-  { class: '8-B', amount: 42000 },
-  { class: '9-C', amount: 121000 },
-  { class: '10-A', amount: 0 },
-  { class: '11-B', amount: 0 },
-  { class: '12-A', amount: 0 },
-]
+const outstandingByClassFromRecords = (records: FeeRecordDto[]) => {
+  const byClass = new Map<string, number>()
+  for (const r of records) {
+    if (r.pending > 0) {
+      byClass.set(r.class, (byClass.get(r.class) ?? 0) + r.pending)
+    }
+  }
+  return [...byClass.entries()].map(([className, amount]) => ({ class: className, amount }))
+}
+
+type FeeLineItem = { feeType: string; amount: number; lineDiscount?: number }
+
+function getFeeItems(record: FeeRecordDto): FeeLineItem[] {
+  if (!record.feeItems || !Array.isArray(record.feeItems)) return []
+  return record.feeItems as FeeLineItem[]
+}
 
 export default function FeesPage() {
   const { toast } = useToast()
-  const [records, setRecords] = React.useState<FeeRecord[]>(feeRecordsData)
+  const { data: feesData, isLoading, isError, error, refetch } = useFees({ page: 1, pageSize: 100 })
+  const { data: dashboardData } = useDashboard()
+  const { data: studentsData } = useStudents({ page: 1, pageSize: 100 })
+  const records = feesData?.items ?? []
+  const monthlyFeeCollection = dashboardData?.monthlyFeeCollection ?? []
+  const outstandingByClass = outstandingByClassFromRecords(records)
   const [activeTab, setActiveTab] = React.useState('all')
   const [showAdd, setShowAdd] = React.useState(false)
   const [showEdit, setShowEdit] = React.useState(false)
   const [showDetail, setShowDetail] = React.useState(false)
   const [showDelete, setShowDelete] = React.useState(false)
-  const [selected, setSelected] = React.useState<FeeRecord | null>(null)
+  const [selected, setSelected] = React.useState<FeeRecordDto | null>(null)
 
   const legacyForm = useForm<FeeRecordFormData>({
     resolver: zodResolver(feeRecordSchema),
@@ -113,8 +130,8 @@ export default function FeesPage() {
   })
 
   const classOptions = React.useMemo(
-    () => [...new Set(studentsData.map((s) => s.class))],
-    [],
+    () => [...new Set((studentsData?.items ?? []).map((s) => s.class))],
+    [studentsData],
   )
 
   const filtered = records.filter((r) => {
@@ -143,139 +160,44 @@ export default function FeesPage() {
     })
   }
 
-  const handleMultiFeeAdd = (data: MultiFeePaymentFormData) => {
-    const totals = calculateMultiFeeTotals(data)
-    const activeLines = data.feeLines.filter((l) => l.enabled && l.amount > 0)
-    const feeItems = activeLines.map((l) => ({
-      feeType: l.feeType,
-      amount: l.amount,
-      lineDiscount: l.lineDiscount || 0,
-    }))
-    const feeTypeLabel =
-      activeLines.length > 1
-        ? 'combined'
-        : activeLines[0]?.feeType ?? 'combined'
-
-    const newRecord: FeeRecord = {
-      id: String(records.length + 1),
-      invoiceNo: `INV2024${String(records.length + 1).padStart(3, '0')}`,
-      studentId: '0',
-      studentName: data.studentName,
-      class: data.class,
-      feeType: feeTypeLabel,
-      feeItems,
-      totalFee: totals.subtotal,
-      paid: totals.amountPaying,
-      pending: totals.balance,
-      discount: totals.totalDiscount,
-      fine: totals.fine,
-      dueDate: data.dueDate,
-      paidDate:
-        totals.balance === 0 && totals.amountPaying > 0
-          ? new Date().toISOString().split('T')[0]
-          : null,
-      status: data.status,
-      paymentMethod: data.amountPaying > 0 ? data.paymentMethod ?? 'upi' : null,
-    }
-    setRecords([...records, newRecord])
+  const handleMultiFeeAdd = (_data: MultiFeePaymentFormData) => {
+    toast({ title: 'Fee write API is not available on the backend yet' })
     setShowAdd(false)
     resetMultiForm()
-    const typesSummary = activeLines.map((l) => l.feeType.replace('-', ' ')).join(', ')
-    toast({
-      title: 'Combined fee payment recorded',
-      description: `Invoice ${newRecord.invoiceNo} — ${activeLines.length} fee type(s): ${typesSummary}.`,
-    })
   }
 
-  const handleMultiFeeEdit = (data: MultiFeePaymentFormData) => {
-    if (!selected) return
-    const totals = calculateMultiFeeTotals(data)
-    const activeLines = data.feeLines.filter((l) => l.enabled && l.amount > 0)
-    const feeItems = activeLines.map((l) => ({
-      feeType: l.feeType,
-      amount: l.amount,
-      lineDiscount: l.lineDiscount || 0,
-    }))
-
-    setRecords(
-      records.map((r) =>
-        r.id === selected.id
-          ? {
-              ...r,
-              studentName: data.studentName,
-              class: data.class,
-              feeType: activeLines.length > 1 ? 'combined' : activeLines[0]?.feeType ?? r.feeType,
-              feeItems,
-              totalFee: totals.subtotal,
-              paid: totals.amountPaying,
-              pending: totals.balance,
-              discount: totals.totalDiscount,
-              fine: totals.fine,
-              dueDate: data.dueDate,
-              paidDate:
-                totals.balance === 0 && totals.amountPaying > 0
-                  ? new Date().toISOString().split('T')[0]
-                  : null,
-              status: data.status,
-              paymentMethod: data.amountPaying > 0 ? data.paymentMethod ?? r.paymentMethod : null,
-            }
-          : r,
-      ),
-    )
+  const handleMultiFeeEdit = (_data: MultiFeePaymentFormData) => {
+    toast({ title: 'Fee write API is not available on the backend yet' })
     setShowEdit(false)
     setSelected(null)
     resetMultiForm()
-    toast({ title: 'Fee record updated' })
   }
 
-  const handleLegacyEdit = (data: FeeRecordFormData) => {
-    if (!selected) return
-    const pending = Math.max(0, data.totalFee - data.paid - data.discount + data.fine)
-    setRecords(
-      records.map((r) =>
-        r.id === selected.id
-          ? {
-              ...r,
-              studentName: data.studentName,
-              class: data.class,
-              feeType: data.feeType,
-              totalFee: data.totalFee,
-              paid: data.paid,
-              pending,
-              discount: data.discount,
-              fine: data.fine,
-              dueDate: data.dueDate,
-              status: data.status,
-              feeItems: undefined,
-            }
-          : r,
-      ),
-    )
+  const handleLegacyEdit = (_data: FeeRecordFormData) => {
+    toast({ title: 'Fee write API is not available on the backend yet' })
     setShowEdit(false)
     setSelected(null)
     legacyForm.reset()
-    toast({ title: 'Fee record updated' })
   }
 
   const handleDelete = () => {
-    if (!selected) return
-    setRecords(records.filter((r) => r.id !== selected.id))
+    toast({ title: 'Fee delete API is not available on the backend yet', variant: 'destructive' })
     setShowDelete(false)
     setSelected(null)
-    toast({ title: 'Fee record deleted', variant: 'destructive' })
   }
 
   const schoolFeeTypeIds = SCHOOL_FEE_TYPES.map((f) => f.id)
 
-  const openEdit = (record: FeeRecord) => {
+  const openEdit = (record: FeeRecordDto) => {
     setSelected(record)
+    const feeItems = getFeeItems(record)
     const useMultiForm =
-      (record.feeItems && record.feeItems.length > 0) ||
+      (feeItems.length > 0) ||
       schoolFeeTypeIds.includes(record.feeType as (typeof schoolFeeTypeIds)[number])
 
     if (useMultiForm) {
       const lines = buildDefaultFeeLines().map((defaultLine) => {
-        const fromItems = record.feeItems?.find((i) => i.feeType === defaultLine.feeType)
+        const fromItems = feeItems.find((i) => i.feeType === defaultLine.feeType)
         if (fromItems) {
           return {
             enabled: true,
@@ -284,7 +206,7 @@ export default function FeesPage() {
             lineDiscount: fromItems.lineDiscount,
           }
         }
-        if (!record.feeItems && record.feeType === defaultLine.feeType) {
+        if (!feeItems.length && record.feeType === defaultLine.feeType) {
           return {
             enabled: true,
             feeType: defaultLine.feeType,
@@ -325,21 +247,22 @@ export default function FeesPage() {
 
   const editUsesMultiForm =
     selected &&
-    ((selected.feeItems && selected.feeItems.length > 0) ||
+    ((getFeeItems(selected).length > 0) ||
       schoolFeeTypeIds.includes(selected.feeType as (typeof schoolFeeTypeIds)[number]))
 
-  const formatFeeTypeCell = (record: FeeRecord) => {
-    if (record.feeItems && record.feeItems.length > 1) {
+  const formatFeeTypeCell = (record: FeeRecordDto) => {
+    const feeItems = getFeeItems(record)
+    if (feeItems.length > 1) {
       return (
         <div className="flex flex-wrap gap-1 max-w-[180px]">
-          {record.feeItems.slice(0, 2).map((item) => (
+          {feeItems.slice(0, 2).map((item) => (
             <Badge key={item.feeType} variant="outline" className="text-xs capitalize">
               {item.feeType.replace('-', ' ')}
             </Badge>
           ))}
-          {record.feeItems.length > 2 && (
+          {feeItems.length > 2 && (
             <Badge variant="secondary" className="text-xs">
-              +{record.feeItems.length - 2}
+              +{feeItems.length - 2}
             </Badge>
           )}
         </div>
@@ -348,7 +271,7 @@ export default function FeesPage() {
     return <span className="capitalize text-sm">{record.feeType.replace('-', ' ')}</span>
   }
 
-  const columns: ColumnDef<FeeRecord>[] = [
+  const columns: ColumnDef<FeeRecordDto>[] = [
     {
       accessorKey: 'studentName',
       header: 'Student',
@@ -444,6 +367,16 @@ export default function FeesPage() {
       </FormSection>
     </div>
   )
+
+  if (isLoading) return <ApiPageLoading />
+  if (isError) {
+    return (
+      <ApiPageError
+        message={isApiError(error) ? error.message : 'Failed to load fees from EduSync.'}
+        onRetry={() => refetch()}
+      />
+    )
+  }
 
   return (
     <DashboardLayout>
@@ -596,16 +529,16 @@ export default function FeesPage() {
               {selected.discount > 0 && <div><p className="text-muted-foreground">Total Discount</p><p className="font-medium flex items-center gap-1"><Award className="h-3 w-3" />{formatCurrency(selected.discount)}</p></div>}
               {selected.fine > 0 && <div><p className="text-muted-foreground">Fine</p><p className="font-medium text-red-500 flex items-center gap-1"><AlertTriangle className="h-3 w-3" />{formatCurrency(selected.fine)}</p></div>}
             </div>
-            {selected.feeItems && selected.feeItems.length > 0 && (
+            {getFeeItems(selected).length > 0 && (
               <div className="rounded-lg border border-border overflow-hidden">
                 <p className="text-sm font-medium px-4 py-2 bg-muted/50 border-b border-border">Fee breakdown</p>
                 <div className="divide-y divide-border">
-                  {selected.feeItems.map((item) => (
+                  {getFeeItems(selected).map((item) => (
                     <div key={item.feeType} className="flex justify-between px-4 py-2.5 text-sm">
                       <span className="capitalize">{item.feeType.replace('-', ' ')}</span>
                       <span>
                         {formatCurrency(item.amount)}
-                        {item.lineDiscount > 0 && (
+                        {item.lineDiscount != null && item.lineDiscount > 0 && (
                           <span className="text-green-500 ml-2">(−{formatCurrency(item.lineDiscount)})</span>
                         )}
                       </span>

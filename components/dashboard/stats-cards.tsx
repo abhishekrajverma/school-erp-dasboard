@@ -15,7 +15,8 @@ import {
   ArrowDownRight,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { dashboardStats } from '@/lib/data'
+import { useDashboard } from '@/hooks/api/use-dashboard'
+import { Skeleton } from '@/components/ui/skeleton'
 
 interface StatCardProps {
   title: string
@@ -77,55 +78,92 @@ function StatCard({
           <Icon className="h-5 w-5 text-primary" />
         </div>
       </div>
-      {/* Decorative gradient */}
       <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
     </motion.div>
   )
 }
 
+function StatCardSkeleton({ index }: { index: number }) {
+  return (
+    <div className="rounded-xl border border-border bg-card p-5">
+      <Skeleton className="h-4 w-24 mb-3" style={{ animationDelay: `${index * 50}ms` }} />
+      <Skeleton className="h-8 w-16 mb-2" />
+      <Skeleton className="h-3 w-32" />
+    </div>
+  )
+}
+
 export function StatsCards() {
-  const stats = [
+  const { data, isLoading } = useDashboard()
+  const stats = data?.stats ?? {
+    totalStudents: 0,
+    totalTeachers: 0,
+    pendingFees: 0,
+    monthlyRevenue: 0,
+    attendancePercentage: 0,
+    salaryPaid: 0,
+    transportRoutes: 0,
+    newAdmissions: 0,
+  }
+
+  if (isLoading && !data) {
+    return (
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {Array.from({ length: 8 }).map((_, i) => (
+          <StatCardSkeleton key={i} index={i} />
+        ))}
+      </div>
+    )
+  }
+
+  const cards = [
     {
       title: 'Total Students',
-      value: dashboardStats.totalStudents,
-      change: '+12% from last month',
-      changeType: 'positive' as const,
+      value: stats.totalStudents,
+      change: 'Live from EduSync',
+      changeType: 'neutral' as const,
       icon: GraduationCap,
     },
     {
       title: 'Total Teachers',
-      value: dashboardStats.totalTeachers,
-      change: '+3 new hires',
-      changeType: 'positive' as const,
+      value: stats.totalTeachers,
+      change: 'Live from EduSync',
+      changeType: 'neutral' as const,
       icon: Users,
     },
     {
       title: 'Pending Fees',
-      value: dashboardStats.pendingFees,
-      change: '-8% from last month',
-      changeType: 'positive' as const,
+      value: stats.pendingFees,
+      change: data?.feeSummary
+        ? `${data.feeSummary.collectionRate}% collection rate`
+        : undefined,
+      changeType: 'neutral' as const,
       icon: CreditCard,
       prefix: '₹',
     },
     {
       title: 'Monthly Revenue',
-      value: dashboardStats.monthlyRevenue,
-      change: '+15% from last month',
-      changeType: 'positive' as const,
+      value: stats.monthlyRevenue,
+      change: data?.feeSummary
+        ? `₹${data.feeSummary.thisMonth.collected.toLocaleString()} collected this month`
+        : undefined,
+      changeType: 'neutral' as const,
       icon: TrendingUp,
       prefix: '₹',
     },
     {
       title: 'Attendance Rate',
-      value: dashboardStats.attendancePercentage,
-      change: '+2.3% from last week',
+      value: stats.attendancePercentage || data?.attendanceSummary?.thisWeek?.avgAttendance || 0,
+      change: data?.attendanceSummary
+        ? `${data.attendanceSummary.thisWeek.improvement > 0 ? '+' : ''}${data.attendanceSummary.thisWeek.improvement}% vs last week`
+        : undefined,
       changeType: 'positive' as const,
       icon: Calendar,
       suffix: '%',
     },
     {
       title: 'Salary Paid',
-      value: dashboardStats.salaryPaid,
+      value: stats.salaryPaid,
       change: 'On schedule',
       changeType: 'neutral' as const,
       icon: Wallet,
@@ -133,23 +171,23 @@ export function StatsCards() {
     },
     {
       title: 'Active Routes',
-      value: dashboardStats.transportRoutes,
-      change: '2 under maintenance',
+      value: stats.transportRoutes,
+      change: 'Transport module',
       changeType: 'neutral' as const,
       icon: Bus,
     },
     {
       title: 'New Admissions',
-      value: dashboardStats.newAdmissions,
-      change: '+24% from last month',
-      changeType: 'positive' as const,
+      value: stats.newAdmissions,
+      change: 'This session',
+      changeType: 'neutral' as const,
       icon: UserPlus,
     },
   ]
 
   return (
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-      {stats.map((stat, index) => (
+      {cards.map((stat, index) => (
         <StatCard key={stat.title} {...stat} index={index} />
       ))}
     </div>

@@ -24,11 +24,8 @@ import { StatusBadge } from '@/components/shared/data-table'
 import { formatCurrency, formatDate } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import { useToast } from '@/hooks/use-toast'
-import type { FeeRecord } from '@/lib/erp-data'
+import type { FeeRecordDto } from '@/lib/api/types/fees'
 import {
-  getParentChildFees,
-  getParentPaymentHistory,
-  payParentFee,
   summarizeParentFees,
   feeTypeLabel,
   PAYMENT_METHODS,
@@ -36,6 +33,8 @@ import {
   type PaymentMethodId,
 } from '@/lib/parent-fees'
 import { ParentFeeInvoiceDialog } from '@/components/parent-portal/parent-fee-invoice'
+import { useParentChildFees, useRecordFeePayment } from '@/hooks/api'
+import { ApiError } from '@/lib/api/client'
 
 type FeeFilter = 'all' | 'pending' | 'paid'
 
@@ -51,27 +50,20 @@ export function ParentFeesPanel({
   parentName: string
 }) {
   const { toast } = useToast()
-  const [fees, setFees] = React.useState<FeeRecord[]>([])
-  const [payments, setPayments] = React.useState<ParentFeePayment[]>([])
+  const feesQuery = useParentChildFees(studentId)
+  const recordPayment = useRecordFeePayment()
+  const fees = feesQuery.data ?? []
   const [filter, setFilter] = React.useState<FeeFilter>('all')
-  const [payingFee, setPayingFee] = React.useState<FeeRecord | null>(null)
+  const [payingFee, setPayingFee] = React.useState<FeeRecordDto | null>(null)
   const [paymentMethod, setPaymentMethod] = React.useState<PaymentMethodId>('upi')
   const [isPaying, setIsPaying] = React.useState(false)
   const [lastPayment, setLastPayment] = React.useState<ParentFeePayment | null>(null)
-  const [lastPaidFee, setLastPaidFee] = React.useState<FeeRecord | null>(null)
+  const [lastPaidFee, setLastPaidFee] = React.useState<FeeRecordDto | null>(null)
   const [showInvoice, setShowInvoice] = React.useState(false)
   const [viewPayment, setViewPayment] = React.useState<ParentFeePayment | null>(null)
+  const [payments, setPayments] = React.useState<ParentFeePayment[]>([])
 
-  const refresh = React.useCallback(() => {
-    setFees(getParentChildFees(studentId))
-    setPayments(getParentPaymentHistory(parentId, studentId))
-  }, [studentId, parentId])
-
-  React.useEffect(() => {
-    refresh()
-  }, [refresh])
-
-  const summary = summarizeParentFees(fees)
+  const summary = summarizeParentFees(fees as never)
   const filteredFees = fees.filter((f) => {
     if (filter === 'pending') return f.pending > 0
     if (filter === 'paid') return f.status === 'paid' && f.pending === 0
@@ -81,19 +73,31 @@ export function ParentFeesPanel({
   const handlePay = async () => {
     if (!payingFee || payingFee.pending <= 0) return
     setIsPaying(true)
-    await new Promise((r) => setTimeout(r, 1200))
     try {
-      const { updatedFee, payment } = payParentFee({
-        fee: payingFee,
-        amount: payingFee.pending,
-        paymentMethod,
+      await recordPayment.mutateAsync({
+        feeId: payingFee.id,
+        body: { amount: payingFee.pending, paymentMethod },
+      })
+      const payment: ParentFeePayment = {
+        id: String(Date.now()),
+        receiptNo: payingFee.invoiceNo,
+        transactionId: `TXN-${Date.now()}`,
+        feeRecordId: payingFee.id,
+        invoiceNo: payingFee.invoiceNo,
+        studentId: payingFee.studentId,
+        studentName: payingFee.studentName,
         parentId,
         parentName,
-      })
-      refresh()
+        amount: payingFee.pending,
+        paymentMethod,
+        paidAt: new Date().toISOString(),
+        feeType: payingFee.feeType,
+        class: payingFee.class,
+      }
+      setPayments((prev) => [payment, ...prev])
       setPayingFee(null)
       setLastPayment(payment)
-      setLastPaidFee(updatedFee)
+      setLastPaidFee({ ...payingFee, pending: 0, paid: payingFee.totalFee, status: 'paid' })
       setShowInvoice(true)
       toast({
         title: 'Payment successful',
@@ -102,7 +106,8 @@ export function ParentFeesPanel({
     } catch (e) {
       toast({
         title: 'Payment failed',
-        description: e instanceof Error ? e.message : 'Please try again.',
+        description:
+          e instanceof ApiError ? e.message : e instanceof Error ? e.message : 'Please try again.',
         variant: 'destructive',
       })
     } finally {
@@ -120,6 +125,13 @@ export function ParentFeesPanel({
 
   return (
     <div className="space-y-6">
+      {feesQuery.isLoading && (
+        <div className="flex justify-center py-8">
+          <Loader2 className="h-6 w-6 animate-spin text-primary" />
+        </div>
+      )}
+      {!feesQuery.isLoading && (
+        <>
       <div>
         <h3 className="text-lg font-semibold tracking-tight">Fees — {studentName}</h3>
         <p className="text-sm text-muted-foreground">
@@ -439,7 +451,7 @@ export function ParentFeesPanel({
             </div>
 
             <p className="text-xs text-muted-foreground">
-              Demo payment — no real money is charged. A receipt will be generated instantly.
+              Payment is processed through the school fee system. A receipt will be generated on success.
             </p>
           </div>
         )}
@@ -454,6 +466,8 @@ export function ParentFeesPanel({
         payment={viewPayment ?? lastPayment}
         fee={lastPaidFee}
       />
+        </>
+      )}
     </div>
   )
 }

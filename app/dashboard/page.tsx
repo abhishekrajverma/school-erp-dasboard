@@ -6,9 +6,12 @@ import { StatsCards } from '@/components/dashboard/stats-cards'
 import { ChartsSection } from '@/components/dashboard/charts'
 import { WidgetsSection } from '@/components/dashboard/widgets'
 import { Badge } from '@/components/ui/badge'
-import { currentSchool } from '@/lib/data'
+import { useTenant } from '@/components/providers/tenant-provider'
 
 export default function DashboardPage() {
+  const { tenant } = useTenant()
+  const schoolName = tenant?.name ?? 'Your School'
+
   return (
     <DashboardLayout>
       <div className="space-y-6">
@@ -22,11 +25,11 @@ export default function DashboardPage() {
           <div className="flex items-center gap-2">
             <h1 className="text-2xl font-bold tracking-tight">Dashboard Overview</h1>
             <Badge variant="outline" className="text-xs">
-              {currentSchool.plan}
+              Live
             </Badge>
           </div>
           <p className="text-sm text-muted-foreground">
-            Welcome back! Here&apos;s what&apos;s happening at {currentSchool.name} today.
+            Welcome back! Here&apos;s what&apos;s happening at {schoolName} today.
           </p>
         </motion.div>
 

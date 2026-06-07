@@ -375,8 +375,10 @@ export function DataTable<TData, TValue>({
 }
 
 // Helper components for common column patterns
-export function StatusBadge({ status }: { status: string }) {
+export function StatusBadge({ status }: { status: string | null | undefined }) {
+  const normalized = status?.trim().toLowerCase() || 'unknown'
   const variants: Record<string, string> = {
+    unknown: 'bg-muted text-muted-foreground border-muted-foreground/20',
     active: 'bg-success/10 text-success border-success/20',
     inactive: 'bg-muted text-muted-foreground border-muted-foreground/20',
     pending: 'bg-warning/10 text-warning border-warning/20',
@@ -401,10 +403,10 @@ export function StatusBadge({ status }: { status: string }) {
     <span
       className={cn(
         'inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium capitalize',
-        variants[status] || variants.inactive
+        variants[normalized] || variants.inactive
       )}
     >
-      {status.replace(/-/g, ' ')}
+      {status ? status.replace(/-/g, ' ') : 'Unknown'}
     </span>
   )
 }

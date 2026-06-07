@@ -1,20 +1,14 @@
 import { api } from './client'
-import type { ListQueryParams, PaginatedResponse } from './types/common'
+import { toQuery } from './query'
+import { normalizeListResponse } from './unwrap'
+import type { ListQueryParams } from './types/common'
 import type { CreateStudentRequest, StudentDto, UpdateStudentRequest } from './types/students'
 
-function toQuery(params?: ListQueryParams): string {
-  if (!params) return ''
-  const search = new URLSearchParams()
-  Object.entries(params).forEach(([key, value]) => {
-    if (value !== undefined && value !== '') search.set(key, String(value))
-  })
-  const qs = search.toString()
-  return qs ? `?${qs}` : ''
-}
-
 export const studentsApi = {
-  list: (params?: ListQueryParams) =>
-    api<PaginatedResponse<StudentDto>>(`/students${toQuery(params)}`),
+  list: async (params?: ListQueryParams) => {
+    const data = await api(`/students${toQuery(params)}`)
+    return normalizeListResponse<StudentDto>(data, params)
+  },
 
   getById: (id: string) => api<StudentDto>(`/students/${id}`),
 

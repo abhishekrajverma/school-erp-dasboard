@@ -1,7 +1,4 @@
-/**
- * Exams API — `/api/exams`
- */
+import { createResourceApi } from './create-resource-api'
+import type { ExamDto } from './types/resources'
 
-export const examsApi = {
-  // list, schedules, results, ...
-}
+export const examsApi = createResourceApi<ExamDto>('/exams')

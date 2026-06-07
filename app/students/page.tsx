@@ -44,10 +44,16 @@ import { DataTable, StatusBadge, ActionMenu } from '@/components/shared/data-tab
 import { SlideOver } from '@/components/shared/slide-over'
 import { ConfirmDialog } from '@/components/shared/confirm-dialog'
 import { PageHeader, StatCard, FormSection, FormField, Tabs } from '@/components/shared/page-components'
-import { studentsData, classesData } from '@/lib/erp-data'
 import { studentSchema, type StudentFormData } from '@/lib/schemas'
 import { cn } from '@/lib/utils'
 import type { ColumnDef } from '@tanstack/react-table'
+import type { StudentDto } from '@/lib/api/types/students'
+import { useStudents, useCreateStudent, useUpdateStudent, useDeleteStudent, useClasses, useParents, useCreateParent, useUpdateParent } from '@/hooks/api'
+import { Skeleton } from '@/components/ui/skeleton'
+import { toCreateStudentRequest, toUpdateStudentRequest } from '@/lib/api/mappers/students'
+import { syncParentFromStudent } from '@/lib/api/sync/parent-from-student'
+import { useToast } from '@/hooks/use-toast'
+import { isApiError } from '@/lib/api/interceptors/errors'
 import {
   AreaChart,
   Area,
@@ -60,7 +66,7 @@ import {
   Bar,
 } from 'recharts'
 
-type Student = (typeof studentsData)[0]
+type Student = StudentDto
 
 const attendanceChartData = [
   { month: 'Jan', attendance: 94 },
@@ -80,7 +86,20 @@ const performanceData = [
 ]
 
 export default function StudentsPage() {
-  const [students, setStudents] = React.useState(studentsData)
+  const { toast } = useToast()
+  const { data: studentsResponse, isLoading, isError, error, refetch } = useStudents({
+    page: 1,
+    pageSize: 100,
+  })
+  const createStudent = useCreateStudent()
+  const updateStudent = useUpdateStudent()
+  const deleteStudent = useDeleteStudent()
+  const { data: parentsResponse, refetch: refetchParents } = useParents({ page: 1, pageSize: 100 })
+  const createParent = useCreateParent()
+  const updateParent = useUpdateParent()
+  const students = studentsResponse?.items ?? []
+  const parents = parentsResponse?.items ?? []
+
   const [searchQuery, setSearchQuery] = React.useState('')
   const [classFilter, setClassFilter] = React.useState('all')
   const [statusFilter, setStatusFilter] = React.useState('all')
@@ -134,67 +153,110 @@ export default function StudentsPage() {
 
   const uniqueClasses = [...new Set(students.map((s) => s.class))]
 
-  const handleAddStudent = (data: StudentFormData) => {
-    const newStudent = {
-      id: String(students.length + 1),
-      firstName: data.firstName,
-      lastName: data.lastName,
-      name: `${data.firstName} ${data.lastName}`,
-      class: data.class,
-      section: data.section,
-      rollNo: String(1000 + students.length + 1),
-      admissionNo: data.admissionNumber,
-      email: data.email,
-      phone: data.phone,
-      dateOfBirth: data.dateOfBirth,
-      gender: data.gender,
-      bloodGroup: data.bloodGroup || 'O+',
-      address: data.address,
-      parentName: data.parentName,
-      parentPhone: data.parentPhone,
-      parentEmail: data.parentEmail || '',
-      status: data.status,
-      feeStatus: 'pending' as const,
-      attendance: 0,
-      avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${data.firstName}`,
-    }
-    setStudents([...students, newStudent])
-    setShowAddForm(false)
-    form.reset()
-  }
-
-  const handleEditStudent = (data: StudentFormData) => {
-    if (!selectedStudent) return
-    setStudents(
-      students.map((s) =>
-        s.id === selectedStudent.id
-          ? {
-              ...s,
-              firstName: data.firstName,
-              lastName: data.lastName,
-              name: `${data.firstName} ${data.lastName}`,
-              email: data.email,
-              phone: data.phone,
-              class: data.class,
-              section: data.section,
-              address: data.address,
-              parentName: data.parentName,
-              parentPhone: data.parentPhone,
-              status: data.status,
-            }
-          : s
+  const handleAddStudent = async (data: StudentFormData) => {
+    const studentName = `${data.firstName} ${data.lastName}`.trim()
+    try {
+      const created = await createStudent.mutateAsync(
+        toCreateStudentRequest(data, { rollNoSeed: students.length }),
       )
-    )
-    setShowEditForm(false)
-    setSelectedStudent(null)
-    form.reset()
+      try {
+        const freshParents = (await refetchParents()).data?.items ?? parents
+        await syncParentFromStudent(
+          data,
+          created.id,
+          freshParents,
+          (body) => createParent.mutateAsync(body),
+          (args) => updateParent.mutateAsync(args),
+        )
+      } catch {
+        toast({
+          title: 'Student added',
+          description: `${studentName} was saved, but the parent could not be linked. Add them from the Parents page.`,
+          variant: 'destructive',
+        })
+        setShowAddForm(false)
+        form.reset()
+        return
+      }
+      setShowAddForm(false)
+      form.reset()
+      toast({
+        title: 'Student added',
+        description: `${studentName} and guardian details were saved. Check the Parents page.`,
+      })
+    } catch (err) {
+      const message = isApiError(err) ? err.message : 'Failed to add student'
+      toast({
+        title: 'Could not add student',
+        description: message,
+        variant: 'destructive',
+      })
+    }
   }
 
-  const handleDeleteStudent = () => {
+  const handleEditStudent = async (data: StudentFormData) => {
     if (!selectedStudent) return
-    setStudents(students.filter((s) => s.id !== selectedStudent.id))
-    setShowDeleteConfirm(false)
-    setSelectedStudent(null)
+    try {
+      await updateStudent.mutateAsync({
+        id: selectedStudent.id,
+        body: toUpdateStudentRequest(data),
+      })
+      try {
+        const freshParents = (await refetchParents()).data?.items ?? parents
+        await syncParentFromStudent(
+          data,
+          selectedStudent.id,
+          freshParents,
+          (body) => createParent.mutateAsync(body),
+          (args) => updateParent.mutateAsync(args),
+        )
+      } catch {
+        toast({
+          title: 'Student updated',
+          description: 'Student saved, but parent link could not be updated.',
+          variant: 'destructive',
+        })
+        setShowEditForm(false)
+        setSelectedStudent(null)
+        form.reset()
+        return
+      }
+      setShowEditForm(false)
+      setSelectedStudent(null)
+      form.reset()
+      toast({
+        title: 'Student updated',
+        description: `${data.firstName} ${data.lastName}`.trim() + ' and guardian details were saved.',
+      })
+    } catch (err) {
+      const message = isApiError(err) ? err.message : 'Failed to update student'
+      toast({
+        title: 'Could not update student',
+        description: message,
+        variant: 'destructive',
+      })
+    }
+  }
+
+  const handleDeleteStudent = async () => {
+    if (!selectedStudent) return
+    const deletedName = selectedStudent.name
+    try {
+      await deleteStudent.mutateAsync(selectedStudent.id)
+      setShowDeleteConfirm(false)
+      setSelectedStudent(null)
+      toast({
+        title: 'Student deleted',
+        description: `${deletedName} has been removed from the system.`,
+      })
+    } catch (err) {
+      const message = isApiError(err) ? err.message : 'Failed to delete student'
+      toast({
+        title: 'Could not delete student',
+        description: message,
+        variant: 'destructive',
+      })
+    }
   }
 
   const openEditForm = (student: Student) => {
@@ -210,10 +272,10 @@ export default function StudentsPage() {
       class: student.class.split('-')[0],
       section: student.section,
       bloodGroup: student.bloodGroup as 'A+' | 'A-' | 'B+' | 'B-' | 'AB+' | 'AB-' | 'O+' | 'O-',
-      address: student.address,
-      parentName: student.parentName,
-      parentPhone: student.parentPhone,
-      parentEmail: student.parentEmail,
+      address: student.address ?? '',
+      parentName: student.parentName ?? '',
+      parentPhone: student.parentPhone ?? '',
+      parentEmail: student.parentEmail ?? '',
       status: student.status as 'active' | 'inactive',
     })
     setShowEditForm(true)
@@ -226,7 +288,7 @@ export default function StudentsPage() {
       cell: ({ row }) => (
         <div className="flex items-center gap-3">
           <Avatar className="h-9 w-9">
-            <AvatarImage src={row.original.avatar} />
+            <AvatarImage src={row.original.avatar ?? undefined} />
             <AvatarFallback>
               {row.original.name.split(' ').map((n) => n[0]).join('')}
             </AvatarFallback>
@@ -309,8 +371,39 @@ export default function StudentsPage() {
   const stats = {
     total: students.length,
     active: students.filter((s) => s.status === 'active').length,
-    avgAttendance: Math.round(students.reduce((acc, s) => acc + s.attendance, 0) / students.length),
+    avgAttendance: students.length
+      ? Math.round(students.reduce((acc, s) => acc + s.attendance, 0) / students.length)
+      : 0,
     pendingFees: students.filter((s) => s.feeStatus === 'pending' || s.feeStatus === 'overdue').length,
+  }
+
+  if (isLoading) {
+    return (
+      <DashboardLayout>
+        <div className="space-y-6">
+          <Skeleton className="h-10 w-64" />
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <Skeleton key={i} className="h-24 rounded-xl" />
+            ))}
+          </div>
+          <Skeleton className="h-96 rounded-xl" />
+        </div>
+      </DashboardLayout>
+    )
+  }
+
+  if (isError) {
+    return (
+      <DashboardLayout>
+        <div className="flex flex-col items-center justify-center gap-4 py-20">
+          <p className="text-muted-foreground">
+            {error instanceof Error ? error.message : 'Failed to load students from EduSync.'}
+          </p>
+          <Button onClick={() => refetch()}>Retry</Button>
+        </div>
+      </DashboardLayout>
+    )
   }
 
   return (
@@ -492,6 +585,7 @@ export default function StudentsPage() {
         description={`Are you sure you want to delete ${selectedStudent?.name}? This action cannot be undone and will remove all associated records.`}
         confirmText="Delete"
         variant="destructive"
+        loading={deleteStudent.isPending}
       />
     </DashboardLayout>
   )
@@ -500,6 +594,22 @@ export default function StudentsPage() {
 // Student Form Component
 function StudentForm({ form }: { form: ReturnType<typeof useForm<StudentFormData>> }) {
   const { register, formState: { errors }, setValue, watch } = form
+  const { data: classesResponse } = useClasses({ page: 1, pageSize: 100 })
+  const classOptions = classesResponse?.items ?? []
+  const selectedClassName = watch('class')
+  const selectedSection = watch('section')
+  const selectedClassMeta = classOptions.find((c) => c.name === selectedClassName)
+  const sectionOptions =
+    selectedClassMeta?.sections && selectedClassMeta.sections.length > 0
+      ? selectedClassMeta.sections
+      : ['A', 'B', 'C', 'D']
+
+  React.useEffect(() => {
+    if (!selectedClassName) return
+    if (selectedSection && !sectionOptions.includes(selectedSection)) {
+      setValue('section', '')
+    }
+  }, [selectedClassName, selectedSection, sectionOptions, setValue])
 
   return (
     <div className="space-y-8">
@@ -558,11 +668,18 @@ function StudentForm({ form }: { form: ReturnType<typeof useForm<StudentFormData
               <SelectValue placeholder="Select class" />
             </SelectTrigger>
             <SelectContent>
-              {classesData.map((c) => (
-                <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>
+              {classOptions.map((c) => (
+                <SelectItem key={c.id} value={c.name}>
+                  {c.name}
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>
+          {classOptions.length === 0 && (
+            <p className="mt-1 text-xs text-muted-foreground">
+              No classes loaded. Add classes under Academics, then try again.
+            </p>
+          )}
         </FormField>
         <FormField label="Section" error={errors.section?.message} required>
           <Select value={watch('section')} onValueChange={(v) => setValue('section', v)}>
@@ -570,8 +687,10 @@ function StudentForm({ form }: { form: ReturnType<typeof useForm<StudentFormData
               <SelectValue placeholder="Select section" />
             </SelectTrigger>
             <SelectContent>
-              {['A', 'B', 'C', 'D'].map((s) => (
-                <SelectItem key={s} value={s}>Section {s}</SelectItem>
+              {sectionOptions.map((s) => (
+                <SelectItem key={s} value={s}>
+                  {s.length === 1 ? `Section ${s}` : s}
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -620,7 +739,7 @@ function StudentProfile({ student }: { student: Student }) {
       {/* Profile Header */}
       <div className="flex items-start gap-4 pb-6 border-b border-border">
         <Avatar className="h-20 w-20">
-          <AvatarImage src={student.avatar} />
+          <AvatarImage src={student.avatar ?? undefined} />
           <AvatarFallback className="text-xl">
             {student.name.split(' ').map((n) => n[0]).join('')}
           </AvatarFallback>

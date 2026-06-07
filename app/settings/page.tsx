@@ -13,12 +13,13 @@ import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Switch } from '@/components/ui/switch'
 import { PageHeader, Tabs, FormSection, FormField } from '@/components/shared/page-components'
-import { schoolSettings } from '@/lib/erp-data'
+import { useTenant } from '@/components/providers/tenant-provider'
 import { schoolSettingsSchema, type SchoolSettingsFormData } from '@/lib/schemas'
 import { useToast } from '@/hooks/use-toast'
 
 export default function SettingsPage() {
   const { toast } = useToast()
+  const { tenant } = useTenant()
   const [activeTab, setActiveTab] = React.useState('profile')
   const [notifications, setNotifications] = React.useState({ email: true, sms: true, push: false, feeReminders: true, attendanceAlerts: true })
   const [roles] = React.useState([
@@ -31,23 +32,23 @@ export default function SettingsPage() {
   const form = useForm<SchoolSettingsFormData>({
     resolver: zodResolver(schoolSettingsSchema),
     defaultValues: {
-      schoolName: schoolSettings.schoolName,
-      email: schoolSettings.email,
-      phone: schoolSettings.phone,
-      address: schoolSettings.address,
-      city: schoolSettings.city,
-      state: schoolSettings.state,
-      pincode: schoolSettings.pincode,
-      website: schoolSettings.website,
-      principalName: schoolSettings.principalName,
-      establishedYear: schoolSettings.establishedYear,
-      affiliationNumber: schoolSettings.affiliationNumber,
-      affiliationBoard: schoolSettings.affiliationBoard,
+      schoolName: tenant?.name ?? '',
+      email: '',
+      phone: '',
+      address: '',
+      city: '',
+      state: '',
+      pincode: '',
+      website: '',
+      principalName: '',
+      establishedYear: new Date().getFullYear(),
+      affiliationNumber: '',
+      affiliationBoard: '',
     },
   })
 
-  const onSaveProfile = (data: SchoolSettingsFormData) => {
-    toast({ title: 'Settings saved', description: `${data.schoolName} profile updated.` })
+  const onSaveProfile = (_data: SchoolSettingsFormData) => {
+    toast({ title: 'Settings API not available yet', description: 'School profile changes cannot be saved until the backend settings API is connected.' })
   }
 
   return (
@@ -70,7 +71,7 @@ export default function SettingsPage() {
         {activeTab === 'profile' && (
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
             <Card>
-              <CardHeader><CardTitle className="text-base flex items-center gap-2"><School className="h-4 w-4" />School Information</CardTitle></CardHeader>
+              <CardHeader><CardTitle className="text-base flex items-center gap-2"><School className="h-4 w-4" />School Information</CardTitle><CardDescription>Settings API not available yet — form is read-only until backend is connected.</CardDescription></CardHeader>
               <CardContent>
                 <form className="space-y-6" onSubmit={form.handleSubmit(onSaveProfile)}>
                   <FormSection title="Basic Details">
@@ -108,8 +109,8 @@ export default function SettingsPage() {
             <CardHeader><CardTitle className="text-base flex items-center gap-2"><Palette className="h-4 w-4" />Branding</CardTitle><CardDescription>Customize your school's appearance</CardDescription></CardHeader>
             <CardContent className="space-y-4">
               <FormField label="Primary Color"><Input type="color" defaultValue="#6366f1" className="h-10 w-20" /></FormField>
-              <FormField label="Academic Year"><Input defaultValue={schoolSettings.academicYear} /></FormField>
-              <FormField label="Logo URL"><Input placeholder="/logo.png" defaultValue={schoolSettings.logo} /></FormField>
+              <FormField label="Academic Year"><Input defaultValue="" placeholder="2024-25" /></FormField>
+              <FormField label="Logo URL"><Input placeholder="/logo.png" defaultValue={tenant?.logoUrl ?? ''} /></FormField>
             </CardContent>
           </Card>
         )}

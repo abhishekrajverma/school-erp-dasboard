@@ -41,6 +41,9 @@ import {
   saveAdmissionDraft,
   clearAdmissionDraft,
 } from '@/lib/admission/storage'
+import { mapAdmissionFormToRequest } from '@/lib/admission/api-mapper'
+import { useCreateAdmission, useSubmitAdmission } from '@/hooks/api/use-admissions'
+import { ApiError } from '@/lib/api/client'
 
 const AUTO_SAVE_MS = 3000
 
@@ -52,6 +55,9 @@ export function AdmissionFormWizard() {
   const [documentErrors, setDocumentErrors] = React.useState<Record<string, string>>({})
   const [submittedId, setSubmittedId] = React.useState<string | null>(null)
   const [hydrated, setHydrated] = React.useState(false)
+  const [isSubmitting, setIsSubmitting] = React.useState(false)
+  const createAdmission = useCreateAdmission()
+  const submitAdmission = useSubmitAdmission()
 
   const form = useForm<AdmissionFormValues>({
     resolver: zodResolver(admissionFormSchema),
@@ -150,15 +156,34 @@ export function AdmissionFormWizard() {
 
   const submitApplication = handleSubmit(
     async (data) => {
-      const sanitized = sanitizeMobileFields(data)
-      const applicationId = `ADM-${Date.now().toString(36).toUpperCase()}`
-      clearAdmissionDraft()
-      setSubmittedId(applicationId)
-      toast({
-        title: 'Application submitted successfully',
-        description: `Your application ID is ${applicationId}. You will receive a confirmation email shortly.`,
-      })
-      console.info('[Admission] Submitted', { applicationId, sanitized })
+      setIsSubmitting(true)
+      try {
+        const sanitized = sanitizeMobileFields(data)
+        const payload = mapAdmissionFormToRequest(sanitized)
+        const created = await createAdmission.mutateAsync(payload)
+        const submitted = await submitAdmission.mutateAsync(created.id)
+        clearAdmissionDraft()
+        const applicationId = submitted.applicationNo ?? submitted.id
+        setSubmittedId(applicationId)
+        toast({
+          title: 'Application submitted successfully',
+          description: `Your application ID is ${applicationId}. You will receive a confirmation email shortly.`,
+        })
+      } catch (error) {
+        const message =
+          error instanceof ApiError
+            ? error.message
+            : error instanceof Error
+              ? error.message
+              : 'Submission failed'
+        toast({
+          title: 'Submission failed',
+          description: message,
+          variant: 'destructive',
+        })
+      } finally {
+        setIsSubmitting(false)
+      }
     },
     () => {
       const docResult = validateDocumentsStep(getValues())
@@ -286,9 +311,9 @@ export function AdmissionFormWizard() {
                 >
                   Save Draft
                 </Button>
-                <Button type="submit" className="gap-2">
+                <Button type="submit" className="gap-2" disabled={isSubmitting}>
                   <Send className="h-4 w-4" />
-                  Submit Application
+                  {isSubmitting ? 'Submitting…' : 'Submit Application'}
                 </Button>
               </>
             ) : (
