@@ -25,10 +25,12 @@ import { Label } from '@/components/ui/label'
 import { FadeUpLine, StaggeredWords, TypewriterText } from '@/components/auth/login-text-animations'
 import { RotatingText } from '@/components/shared/rotating-text'
 import { brand, hero } from '@/lib/landing/content'
+import { CompanyBranding } from '@/components/shared/company-branding'
 import { getRoleHomePath } from '@/lib/auth'
 import { demoLoginHints, type UserRole } from '@/lib/portal-users'
 import { useAuth } from '@/components/providers/auth-provider'
 import { cn } from '@/lib/utils'
+import { InlineApiError } from '@/components/shared/api-page-state'
 
 const LOGIN_DESCRIPTION =
   'Sign in as admin, principal, teacher, student, or parent—each account sees only their own school data.'
@@ -76,7 +78,7 @@ export default function LoginPage() {
   const [password, setPassword] = React.useState(demoLoginHints.teacher.password)
   const [showPassword, setShowPassword] = React.useState(false)
   const [isSubmitting, setIsSubmitting] = React.useState(false)
-  const [loginError, setLoginError] = React.useState<string | null>(null)
+  const [loginError, setLoginError] = React.useState<unknown | null>(null)
   const [focusedField, setFocusedField] = React.useState<'email' | 'password' | null>(null)
 
   React.useEffect(() => {
@@ -104,8 +106,8 @@ export default function LoginPage() {
     try {
       const account = await login({ email: email.trim(), password })
       router.push(getRoleHomePath(account.role))
-    } catch {
-      setLoginError('Invalid email or password. Use the demo credentials below.')
+    } catch (err) {
+      setLoginError(err)
     } finally {
       setIsSubmitting(false)
     }
@@ -342,15 +344,11 @@ export default function LoginPage() {
                     </div>
                   </motion.div>
 
-                  {loginError && (
-                    <motion.p
-                      variants={itemVariants}
-                      className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive"
-                      role="alert"
-                    >
-                      {loginError}
-                    </motion.p>
-                  )}
+                  {loginError ? (
+                    <motion.div variants={itemVariants}>
+                      <InlineApiError error={loginError} />
+                    </motion.div>
+                  ) : null}
 
                   <motion.div
                     variants={itemVariants}
@@ -426,6 +424,7 @@ export default function LoginPage() {
             >
               Protected by 256-bit encryption · SOC 2 ready
             </motion.p>
+            <CompanyBranding variant="footer" className="mt-4" />
           </motion.div>
         </div>
       </div>

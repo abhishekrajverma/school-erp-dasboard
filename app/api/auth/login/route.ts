@@ -3,6 +3,10 @@ import {
   buildAuthCookies,
   loginWithCredentials,
 } from '@/lib/auth/server'
+import {
+  isServerUnavailableError,
+  SERVER_UNAVAILABLE_MESSAGE,
+} from '@/lib/api/interceptors/errors'
 import { TENANT_COOKIE } from '@/lib/tenant/constants'
 import { getSecureCookieOptions } from '@/lib/auth/cookies'
 
@@ -40,6 +44,12 @@ export async function POST(request: Request) {
 
     return response
   } catch (error) {
+    if (isServerUnavailableError(error)) {
+      return NextResponse.json(
+        { code: 'SERVER_UNAVAILABLE', message: SERVER_UNAVAILABLE_MESSAGE },
+        { status: 503 },
+      )
+    }
     const message = error instanceof Error ? error.message : 'Login failed'
     return NextResponse.json(
       { code: 'AUTH_FAILED', message },

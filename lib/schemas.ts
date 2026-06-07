@@ -1,5 +1,6 @@
 // Zod validation schemas for all ERP modules
 import { z } from 'zod'
+import { buildClassRange, parseClassList, parseWorkingDays } from '@/lib/master-data/format'
 
 // Student Schema
 export const studentSchema = z.object({
@@ -245,6 +246,49 @@ export const schoolSettingsSchema = z.object({
 })
 
 export type SchoolSettingsFormData = z.infer<typeof schoolSettingsSchema>
+
+export const masterDataSchema = z.object({
+  academicYear: z.string().min(1, 'Academic year is required'),
+  sessionStartDate: z.string().optional(),
+  sessionEndDate: z.string().optional(),
+  admissionNumberPrefix: z.string().min(1, 'Admission prefix is required'),
+  admissionNumberStartFrom: z.coerce.number().int().min(1, 'Start number must be at least 1'),
+  admissionNumberPadding: z.coerce.number().int().min(3).max(8),
+  rollNumberPrefix: z.string().optional(),
+  rollNumberStartFrom: z.coerce.number().int().min(1),
+  employeeIdPrefix: z.string().min(1, 'Employee prefix is required'),
+  employeeIdStartFrom: z.coerce.number().int().min(1),
+  schoolCode: z.string().optional(),
+  defaultSections: z.string().min(1, 'At least one section is required'),
+  classLabelPrefix: z.string().min(1, 'Class label is required'),
+  classStartFrom: z.string().optional(),
+  classEndAt: z.string().optional(),
+  classList: z.string().optional(),
+  currency: z.string().min(1),
+  currencySymbol: z.string().min(1),
+  timezone: z.string().min(1),
+  feeDueDayOfMonth: z.coerce.number().int().min(1).max(28),
+  lateFeePercent: z.coerce.number().min(0).max(100),
+  minAttendancePercent: z.coerce.number().min(0).max(100),
+  workingDays: z
+    .string()
+    .refine((value) => parseWorkingDays(value).length > 0, 'Select at least one working day'),
+  affiliationBoard: z.string().optional(),
+  birthdayNavbarEnabled: z.boolean(),
+  birthdayNavbarMessage: z.string().min(1, 'Birthday message is required'),
+}).superRefine((data, ctx) => {
+  const hasExplicitClasses = parseClassList(data.classList).length > 0
+  const hasRangeClasses = buildClassRange({ ...data, classList: '' }).length > 0
+  if (!hasExplicitClasses && !hasRangeClasses) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['classList'],
+      message: 'Add at least one class from the dropdown',
+    })
+  }
+})
+
+export type MasterDataFormData = z.infer<typeof masterDataSchema>
 
 // Fee Record (extended CRUD) — legacy single-type
 export const feeRecordSchema = z.object({

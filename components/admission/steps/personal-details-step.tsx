@@ -11,6 +11,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { FormField } from '@/components/shared/page-components'
+import { SchoolClassSelect } from '@/components/shared/school-class-select'
 import { FormCard, FormGrid } from '@/components/admission/form-card'
 import { YesNoField } from '@/components/admission/yes-no-field'
 import type { AdmissionFormValues } from '@/lib/admission/types'
@@ -18,7 +19,6 @@ import {
   ACADEMIC_SESSION_OPTIONS,
   BLOOD_GROUP_OPTIONS,
   CATEGORY_OPTIONS,
-  CLASS_OPTIONS,
   GENDER_OPTIONS,
 } from '@/lib/admission/constants'
 import { formatAadhaar } from '@/lib/admission/validators'
@@ -97,14 +97,10 @@ export function PersonalDetailsStep({ form }: StepProps) {
           </Select>
         </FormField>
         <FormField label="Class To Which Admission Is Sought" required error={errors.classSought?.message}>
-          <Select value={watch('classSought')} onValueChange={(v) => setValue('classSought', v, { shouldValidate: true })}>
-            <SelectTrigger><SelectValue placeholder="Select class" /></SelectTrigger>
-            <SelectContent>
-              {CLASS_OPTIONS.map((c) => (
-                <SelectItem key={c} value={c}>{c}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <SchoolClassSelect
+            value={watch('classSought')}
+            onValueChange={(v) => setValue('classSought', v, { shouldValidate: true })}
+          />
         </FormField>
         <FormField label="Academic Session" required error={errors.academicSession?.message}>
           <Select value={watch('academicSession')} onValueChange={(v) => setValue('academicSession', v, { shouldValidate: true })}>

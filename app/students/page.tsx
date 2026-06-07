@@ -43,6 +43,7 @@ import {
 import { DataTable, StatusBadge, ActionMenu } from '@/components/shared/data-table'
 import { SlideOver } from '@/components/shared/slide-over'
 import { ConfirmDialog } from '@/components/shared/confirm-dialog'
+import { ApiPageError } from '@/components/shared/api-page-state'
 import { PageHeader, StatCard, FormSection, FormField, Tabs } from '@/components/shared/page-components'
 import { studentSchema, type StudentFormData } from '@/lib/schemas'
 import { cn } from '@/lib/utils'
@@ -53,6 +54,10 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { toCreateStudentRequest, toUpdateStudentRequest } from '@/lib/api/mappers/students'
 import { syncParentFromStudent } from '@/lib/api/sync/parent-from-student'
 import { useToast } from '@/hooks/use-toast'
+import { useMasterData } from '@/hooks/use-master-data'
+import { useSchoolClasses } from '@/hooks/use-school-classes'
+import { SchoolClassSelect } from '@/components/shared/school-class-select'
+import { admissionNumberPlaceholder, formatAdmissionNumber } from '@/lib/master-data/format'
 import { isApiError } from '@/lib/api/interceptors/errors'
 import {
   AreaChart,
@@ -87,7 +92,7 @@ const performanceData = [
 
 export default function StudentsPage() {
   const { toast } = useToast()
-  const { data: studentsResponse, isLoading, isError, error, refetch } = useStudents({
+  const { data: studentsResponse, isLoading, isError, error, refetch, isFetching } = useStudents({
     page: 1,
     pageSize: 100,
   })
@@ -99,6 +104,31 @@ export default function StudentsPage() {
   const updateParent = useUpdateParent()
   const students = studentsResponse?.items ?? []
   const parents = parentsResponse?.items ?? []
+  const { data: masterData } = useMasterData()
+  const { mergeWith: mergeSchoolClasses } = useSchoolClasses()
+
+  const openAddStudentForm = () => {
+    form.reset({
+      firstName: '',
+      lastName: '',
+      email: '',
+      phone: '',
+      dateOfBirth: '',
+      gender: 'male',
+      admissionNumber: formatAdmissionNumber(masterData, students.length),
+      class: '',
+      section: '',
+      bloodGroup: undefined,
+      address: '',
+      parentName: '',
+      parentPhone: '',
+      parentEmail: '',
+      emergencyContact: '',
+      medicalNotes: '',
+      status: 'active',
+    })
+    setShowAddForm(true)
+  }
 
   const [searchQuery, setSearchQuery] = React.useState('')
   const [classFilter, setClassFilter] = React.useState('all')
@@ -151,7 +181,10 @@ export default function StudentsPage() {
     return matchesSearch && matchesClass && matchesStatus && matchesTab
   })
 
-  const uniqueClasses = [...new Set(students.map((s) => s.class))]
+  const uniqueClasses = React.useMemo(() => {
+    const fromStudents = [...new Set(students.map((s) => s.class).filter(Boolean))]
+    return mergeSchoolClasses(fromStudents)
+  }, [students, mergeSchoolClasses])
 
   const handleAddStudent = async (data: StudentFormData) => {
     const studentName = `${data.firstName} ${data.lastName}`.trim()
@@ -395,14 +428,12 @@ export default function StudentsPage() {
 
   if (isError) {
     return (
-      <DashboardLayout>
-        <div className="flex flex-col items-center justify-center gap-4 py-20">
-          <p className="text-muted-foreground">
-            {error instanceof Error ? error.message : 'Failed to load students from EduSync.'}
-          </p>
-          <Button onClick={() => refetch()}>Retry</Button>
-        </div>
-      </DashboardLayout>
+      <ApiPageError
+        error={error}
+        resourceName="students"
+        onRetry={() => refetch()}
+        isRetrying={isFetching}
+      />
     )
   }
 
@@ -419,7 +450,7 @@ export default function StudentsPage() {
             <Download className="h-4 w-4" />
             Export
           </Button>
-          <Button size="sm" className="gap-2" onClick={() => setShowAddForm(true)}>
+          <Button size="sm" className="gap-2" onClick={openAddStudentForm}>
             <Plus className="h-4 w-4" />
             Add Student
           </Button>
@@ -497,7 +528,7 @@ export default function StudentsPage() {
               {
                 key: 'class',
                 label: 'Class',
-                options: uniqueClasses.map((c) => ({ label: `Class ${c}`, value: c })),
+                options: uniqueClasses.map((c) => ({ label: c, value: c })),
               },
               {
                 key: 'status',
@@ -594,15 +625,19 @@ export default function StudentsPage() {
 // Student Form Component
 function StudentForm({ form }: { form: ReturnType<typeof useForm<StudentFormData>> }) {
   const { register, formState: { errors }, setValue, watch } = form
+  const { data: masterData } = useMasterData()
+  const { sections: masterSections } = useSchoolClasses()
   const { data: classesResponse } = useClasses({ page: 1, pageSize: 100 })
   const classOptions = classesResponse?.items ?? []
+  const apiClassNames = React.useMemo(() => classOptions.map((c) => c.name), [classOptions])
   const selectedClassName = watch('class')
   const selectedSection = watch('section')
   const selectedClassMeta = classOptions.find((c) => c.name === selectedClassName)
   const sectionOptions =
     selectedClassMeta?.sections && selectedClassMeta.sections.length > 0
       ? selectedClassMeta.sections
-      : ['A', 'B', 'C', 'D']
+      : masterSections
+  const admissionPlaceholder = admissionNumberPlaceholder(masterData)
 
   React.useEffect(() => {
     if (!selectedClassName) return
@@ -660,26 +695,14 @@ function StudentForm({ form }: { form: ReturnType<typeof useForm<StudentFormData
 
       <FormSection title="Academic Information" description="Class and admission details">
         <FormField label="Admission Number" error={errors.admissionNumber?.message} required>
-          <Input {...register('admissionNumber')} placeholder="ADM2024001" />
+          <Input {...register('admissionNumber')} placeholder={admissionPlaceholder} />
         </FormField>
         <FormField label="Class" error={errors.class?.message} required>
-          <Select value={watch('class')} onValueChange={(v) => setValue('class', v)}>
-            <SelectTrigger>
-              <SelectValue placeholder="Select class" />
-            </SelectTrigger>
-            <SelectContent>
-              {classOptions.map((c) => (
-                <SelectItem key={c.id} value={c.name}>
-                  {c.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          {classOptions.length === 0 && (
-            <p className="mt-1 text-xs text-muted-foreground">
-              No classes loaded. Add classes under Academics, then try again.
-            </p>
-          )}
+          <SchoolClassSelect
+            value={watch('class')}
+            onValueChange={(v) => setValue('class', v)}
+            extraClasses={apiClassNames}
+          />
         </FormField>
         <FormField label="Section" error={errors.section?.message} required>
           <Select value={watch('section')} onValueChange={(v) => setValue('section', v)}>

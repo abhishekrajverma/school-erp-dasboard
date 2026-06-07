@@ -6,6 +6,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Save, School, Palette, Shield, Bell, CreditCard, Building2, Globe } from 'lucide-react'
 import { SchoolWebsiteAdminPanel } from '@/components/school-website/school-website-admin-panel'
+import { MasterDataPanel } from '@/components/settings/master-data-panel'
 import { DEFAULT_SCHOOL_WEBSITE_SLUG, getSchoolWebsitePath } from '@/lib/school-website'
 import { DashboardLayout } from '@/components/dashboard/layout'
 import { Button } from '@/components/ui/button'
@@ -16,6 +17,8 @@ import { PageHeader, Tabs, FormSection, FormField } from '@/components/shared/pa
 import { useTenant } from '@/components/providers/tenant-provider'
 import { schoolSettingsSchema, type SchoolSettingsFormData } from '@/lib/schemas'
 import { useToast } from '@/hooks/use-toast'
+import { FestivalEffectsToggle } from '@/components/festivals/festival-greeting'
+import { BirthdayMessagePanel } from '@/components/settings/birthday-message-panel'
 
 export default function SettingsPage() {
   const { toast } = useToast()
@@ -60,6 +63,7 @@ export default function SettingsPage() {
 
         <Tabs tabs={[
           { id: 'profile', label: 'School Profile' },
+          { id: 'master-data', label: 'Master Data' },
           { id: 'website', label: 'School Website' },
           { id: 'branding', label: 'Branding' },
           { id: 'roles', label: 'Roles & Permissions' },
@@ -98,6 +102,8 @@ export default function SettingsPage() {
           </motion.div>
         )}
 
+        {activeTab === 'master-data' && <MasterDataPanel />}
+
         {activeTab === 'website' && (
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
             <SchoolWebsiteAdminPanel />
@@ -111,6 +117,18 @@ export default function SettingsPage() {
               <FormField label="Primary Color"><Input type="color" defaultValue="#6366f1" className="h-10 w-20" /></FormField>
               <FormField label="Academic Year"><Input defaultValue="" placeholder="2024-25" /></FormField>
               <FormField label="Logo URL"><Input placeholder="/logo.png" defaultValue={tenant?.logoUrl ?? ''} /></FormField>
+              <div className="rounded-lg border border-border/80 bg-muted/20 p-4 space-y-3">
+                <p className="text-sm font-medium">Festival experience</p>
+                <p className="text-xs text-muted-foreground">
+                  Greetings appear in the top navbar on Holi, Diwali, and other festivals.
+                </p>
+                <FestivalEffectsToggle />
+                <p className="text-xs text-muted-foreground">
+                  Preview: add <code className="rounded bg-muted px-1">?festival=holi</code> or{' '}
+                  <code className="rounded bg-muted px-1">?festival=diwali</code> to any page URL.
+                </p>
+              </div>
+              <BirthdayMessagePanel />
             </CardContent>
           </Card>
         )}

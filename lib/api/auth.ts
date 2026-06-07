@@ -1,4 +1,5 @@
 import { api } from './client'
+import { ApiError } from './interceptors/errors'
 import type { AuthUser, LoginCredentials } from '@/lib/auth/types'
 import type { LoginRequest, LoginResponse } from './types/auth'
 
@@ -11,8 +12,12 @@ export const authApi = {
       body: JSON.stringify(body satisfies LoginRequest),
     }).then(async (res) => {
       if (!res.ok) {
-        const err = await res.json().catch(() => ({}))
-        throw new Error(err.message ?? 'Login failed')
+        const err = (await res.json().catch(() => ({}))) as { message?: string; code?: string }
+        throw new ApiError(
+          res.status,
+          err.code ?? `HTTP_${res.status}`,
+          err.message ?? 'Login failed',
+        )
       }
       return res.json() as Promise<{ user: AuthUser }>
     }),

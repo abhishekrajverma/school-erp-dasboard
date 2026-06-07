@@ -41,11 +41,8 @@ export default function TimetablePage() {
   if (classesError || isError) {
     return (
       <ApiPageError
-        message={
-          isApiError(classesErr ?? error)
-            ? (classesErr ?? error)?.message ?? 'Failed to load timetable.'
-            : 'Failed to load timetable from EduSync.'
-        }
+        error={classesErr ?? error}
+        resourceName="timetable"
         onRetry={() => {
           void refetchClasses()
           void refetch()

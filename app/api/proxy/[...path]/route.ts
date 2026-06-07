@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { env } from '@/lib/config/env'
+import { SERVER_UNAVAILABLE_MESSAGE } from '@/lib/api/interceptors/errors'
 import {
   getAccessTokenFromRequest,
   getTenantIdFromRequest,
@@ -28,11 +29,22 @@ async function proxyRequest(request: NextRequest, pathSegments: string[]) {
     method !== 'GET' && method !== 'HEAD' && method !== 'DELETE'
   const body = hasBody ? await request.arrayBuffer() : undefined
 
-  const backendResponse = await fetch(url.toString(), {
-    method,
-    headers,
-    body: hasBody ? body : undefined,
-  })
+  let backendResponse: Response
+  try {
+    backendResponse = await fetch(url.toString(), {
+      method,
+      headers,
+      body: hasBody ? body : undefined,
+    })
+  } catch {
+    return NextResponse.json(
+      {
+        message: SERVER_UNAVAILABLE_MESSAGE,
+        code: 'SERVER_UNAVAILABLE',
+      },
+      { status: 503 },
+    )
+  }
 
   const responseHeaders = new Headers()
   const backendContentType = backendResponse.headers.get('content-type')

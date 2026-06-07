@@ -31,6 +31,7 @@ import {
 import { DataTable, StatusBadge, ActionMenu } from '@/components/shared/data-table'
 import { SlideOver } from '@/components/shared/slide-over'
 import { ConfirmDialog } from '@/components/shared/confirm-dialog'
+import { ApiPageError } from '@/components/shared/api-page-state'
 import { PageHeader, StatCard, FormSection, FormField, Tabs } from '@/components/shared/page-components'
 import { teacherSchema, type TeacherFormData } from '@/lib/schemas'
 import type { ColumnDef } from '@tanstack/react-table'
@@ -41,7 +42,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 type Teacher = TeacherDto
 
 export default function TeachersPage() {
-  const { data: teachersResponse, isLoading, isError, error, refetch } = useTeachers({
+  const { data: teachersResponse, isLoading, isError, error, refetch, isFetching } = useTeachers({
     page: 1,
     pageSize: 100,
   })
@@ -258,14 +259,12 @@ export default function TeachersPage() {
 
   if (isError) {
     return (
-      <DashboardLayout>
-        <div className="flex flex-col items-center justify-center gap-4 py-20">
-          <p className="text-muted-foreground">
-            {error instanceof Error ? error.message : 'Failed to load teachers from EduSync.'}
-          </p>
-          <Button onClick={() => refetch()}>Retry</Button>
-        </div>
-      </DashboardLayout>
+      <ApiPageError
+        error={error}
+        resourceName="teachers"
+        onRetry={() => refetch()}
+        isRetrying={isFetching}
+      />
     )
   }
 

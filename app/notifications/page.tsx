@@ -67,10 +67,7 @@ export default function NotificationsPage() {
   if (isLoading) return <ApiPageLoading rows={3} />
   if (isError) {
     return (
-      <ApiPageError
-        message={isApiError(error) ? error.message : 'Failed to load notifications from EduSync.'}
-        onRetry={() => refetch()}
-      />
+      <ApiPageError error={error} resourceName="notifications" onRetry={() => refetch()} />
     )
   }
 

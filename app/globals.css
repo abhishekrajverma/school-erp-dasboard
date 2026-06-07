@@ -454,9 +454,31 @@
   50% { transform: translateY(-10px); }
 }
 
+/* Navbar festival badge (Holi etc.) */
+@keyframes festival-nav-holi-text-keyframes {
+  0% { background-position: 0% center; }
+  100% { background-position: 200% center; }
+}
+
+.festival-nav-holi-text {
+  background-size: 200% auto;
+  animation: festival-nav-holi-text-keyframes 5s linear infinite;
+}
+
+.festival-nav-holi {
+  animation: festival-nav-holi-pulse-keyframes 3s ease-in-out infinite;
+}
+
+@keyframes festival-nav-holi-pulse-keyframes {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(236, 72, 153, 0); }
+  50% { box-shadow: 0 0 12px 0 rgba(236, 72, 153, 0.15); }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .school-site-orb,
-  .school-float-badge {
+  .school-float-badge,
+  .festival-nav-holi-text,
+  .festival-nav-holi {
     animation: none;
   }
 }

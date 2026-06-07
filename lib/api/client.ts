@@ -4,7 +4,7 @@ import {
   CORRELATION_HEADER,
   getOrCreateCorrelationId,
 } from './interceptors/correlation'
-import { ApiError, parseApiError } from './interceptors/errors'
+import { ApiError, createNetworkError, parseApiError } from './interceptors/errors'
 import { applyTenantHeaders } from './interceptors/tenant'
 import { reportError, shouldReportError } from '@/lib/observability/report-error'
 
@@ -36,12 +36,17 @@ export async function api<T>(path: string, options: ApiRequestOptions = {}): Pro
   headers.set(CORRELATION_HEADER, getOrCreateCorrelationId(correlationId))
   applyTenantHeaders(headers)
 
-  const execute = async (): Promise<Response> =>
-    fetch(buildUrl(path), {
-      ...init,
-      headers,
-      credentials: 'include',
-    })
+  const execute = async (): Promise<Response> => {
+    try {
+      return await fetch(buildUrl(path), {
+        ...init,
+        headers,
+        credentials: 'include',
+      })
+    } catch (err) {
+      throw createNetworkError(err)
+    }
+  }
 
   let response = await execute()
 
@@ -93,7 +98,12 @@ export async function serverApi<T>(
   if (accessToken) headers.set('Authorization', `Bearer ${accessToken}`)
   if (tenantId) headers.set('X-Tenant-Id', tenantId)
 
-  const response = await fetch(url, { ...init, headers })
+  let response: Response
+  try {
+    response = await fetch(url, { ...init, headers })
+  } catch (err) {
+    throw createNetworkError(err)
+  }
 
   if (!response.ok) {
     throw await parseApiError(response)

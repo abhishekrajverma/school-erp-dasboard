@@ -7,6 +7,7 @@ import { Menu, Moon, Sparkles, Sun, X } from 'lucide-react'
 import { useTheme } from 'next-themes'
 import { Button } from '@/components/ui/button'
 import { brand } from '@/lib/landing/content'
+import { NavbarGreetingContainer } from '@/components/festivals/festival-greeting'
 import { cn } from '@/lib/utils'
 
 const links = [
@@ -66,6 +67,7 @@ export function LandingNavbar() {
         </nav>
 
         <div className="flex items-center gap-2">
+          <NavbarGreetingContainer className="hidden sm:flex" />
           {mounted && (
             <Button
               variant="ghost"

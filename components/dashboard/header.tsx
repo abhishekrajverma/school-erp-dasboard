@@ -46,6 +46,7 @@ import {
 } from '@/components/ui/command'
 import { useAuth } from '@/components/providers/auth-provider'
 import { useTenant } from '@/components/providers/tenant-provider'
+import { NavbarGreetingContainer } from '@/components/festivals/festival-greeting'
 import { useRouter } from 'next/navigation'
 
 interface HeaderProps {
@@ -141,6 +142,9 @@ export function Header({ sidebarCollapsed, onSidebarToggle }: HeaderProps) {
           </kbd>
         </div>
       </div>
+
+      {/* Festival greeting — navbar only */}
+      <NavbarGreetingContainer className="hidden shrink-0 md:flex" />
 
       {/* Right side - Quick Actions, Notifications, Theme, Profile */}
       <div className="flex items-center gap-2">

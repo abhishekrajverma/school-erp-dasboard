@@ -32,6 +32,8 @@ import {
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip'
+import { CompanyBranding } from '@/components/shared/company-branding'
+import { companyBrand } from '@/lib/company-branding'
 
 const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   LayoutDashboard,
@@ -108,7 +110,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
                 <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
                   <Sparkles className="h-4 w-4 text-primary-foreground" />
                 </div>
-                <span className="font-semibold text-lg tracking-tight">EduSync</span>
+                <span className="font-semibold text-lg tracking-tight">{companyBrand.name}</span>
               </motion.div>
             )}
           </AnimatePresence>
@@ -166,6 +168,11 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
               return <div key={item.name}>{linkContent}</div>
             })}
           </nav>
+        </div>
+
+        {/* Company branding */}
+        <div className="shrink-0 border-t border-border px-3 py-3">
+          <CompanyBranding variant="sidebar" collapsed={collapsed} />
         </div>
 
         {/* Collapse Toggle */}

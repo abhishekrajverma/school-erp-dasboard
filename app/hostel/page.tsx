@@ -51,10 +51,7 @@ export default function HostelPage() {
   if (isLoading) return <ApiPageLoading rows={3} />
   if (isError) {
     return (
-      <ApiPageError
-        message={isApiError(error) ? error.message : 'Failed to load hostel rooms from EduSync.'}
-        onRetry={() => refetch()}
-      />
+      <ApiPageError error={error} resourceName="hostel rooms" onRetry={() => refetch()} />
     )
   }
 

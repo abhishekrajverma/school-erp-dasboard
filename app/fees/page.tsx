@@ -371,10 +371,7 @@ export default function FeesPage() {
   if (isLoading) return <ApiPageLoading />
   if (isError) {
     return (
-      <ApiPageError
-        message={isApiError(error) ? error.message : 'Failed to load fees from EduSync.'}
-        onRetry={() => refetch()}
-      />
+      <ApiPageError error={error} resourceName="fees" onRetry={() => refetch()} />
     )
   }
 

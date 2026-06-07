@@ -14,10 +14,11 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { FormField } from '@/components/shared/page-components'
+import { SchoolClassSelect } from '@/components/shared/school-class-select'
 import { FormCard, FormGrid } from '@/components/admission/form-card'
 import { YesNoField } from '@/components/admission/yes-no-field'
 import type { AdmissionFormValues } from '@/lib/admission/types'
-import { BOARD_OPTIONS, CLASS_OPTIONS } from '@/lib/admission/constants'
+import { BOARD_OPTIONS } from '@/lib/admission/constants'
 import { formatIndianMobile } from '@/lib/admission/validators'
 
 interface StepProps {
@@ -123,17 +124,10 @@ export function AcademicStep({ form }: StepProps) {
                     <Input {...register(`siblings.${index}.admissionNumber`)} />
                   </FormField>
                   <FormField label="Class">
-                    <Select
+                    <SchoolClassSelect
                       value={watch(`siblings.${index}.class`) || ''}
                       onValueChange={(v) => setValue(`siblings.${index}.class`, v)}
-                    >
-                      <SelectTrigger><SelectValue placeholder="Class" /></SelectTrigger>
-                      <SelectContent>
-                        {CLASS_OPTIONS.map((c) => (
-                          <SelectItem key={c} value={c}>{c}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    />
                   </FormField>
                   <FormField label="Section">
                     <Input {...register(`siblings.${index}.section`)} placeholder="e.g., A" />

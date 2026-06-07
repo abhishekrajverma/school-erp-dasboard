@@ -101,7 +101,8 @@ export default function TransportPage() {
   if (vehiclesError || routesError) {
     return (
       <ApiPageError
-        message={isApiError(vehiclesErr ?? routesErr) ? (vehiclesErr ?? routesErr)?.message ?? 'Failed to load transport data.' : 'Failed to load transport from EduSync.'}
+        error={vehiclesErr ?? routesErr}
+        resourceName="transport"
         onRetry={() => { void refetchVehicles(); void refetchRoutes() }}
       />
     )

@@ -83,10 +83,7 @@ export default function ReportsPage() {
   if (isLoading) return <ApiPageLoading rows={4} />
   if (isError) {
     return (
-      <ApiPageError
-        message={isApiError(error) ? error.message : 'Failed to load reports data from EduSync.'}
-        onRetry={() => refetch()}
-      />
+      <ApiPageError error={error} resourceName="reports" onRetry={() => refetch()} />
     )
   }
 

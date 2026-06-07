@@ -35,7 +35,7 @@ type Parent = ParentDto
 
 export default function ParentsPage() {
   const { toast } = useToast()
-  const { data, isLoading, isError, error, refetch } = useParents({ page: 1, pageSize: 100 })
+  const { data, isLoading, isError, error, refetch, isFetching } = useParents({ page: 1, pageSize: 100 })
   const { data: studentsData } = useStudents({ page: 1, pageSize: 500 })
   const createParent = useCreateParent()
   const updateParent = useUpdateParent()
@@ -217,8 +217,10 @@ export default function ParentsPage() {
   if (isError) {
     return (
       <ApiPageError
-        message={isApiError(error) ? error.message : 'Failed to load parents from EduSync.'}
+        error={error}
+        resourceName="parents"
         onRetry={() => refetch()}
+        isRetrying={isFetching}
       />
     )
   }

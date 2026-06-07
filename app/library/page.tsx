@@ -236,7 +236,8 @@ export default function LibraryPage() {
   if (booksError || issuesError) {
     return (
       <ApiPageError
-        message={isApiError(booksErr ?? issuesErr) ? (booksErr ?? issuesErr)?.message ?? 'Failed to load library data.' : 'Failed to load library from EduSync.'}
+        error={booksErr ?? issuesErr}
+        resourceName="library"
         onRetry={() => { void refetchBooks(); void refetchIssues() }}
       />
     )

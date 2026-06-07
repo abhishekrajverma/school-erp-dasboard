@@ -127,10 +127,7 @@ export default function AttendancePage() {
   if (isLoading) return <ApiPageLoading />
   if (isError) {
     return (
-      <ApiPageError
-        message={isApiError(error) ? error.message : 'Failed to load attendance from EduSync.'}
-        onRetry={() => refetch()}
-      />
+      <ApiPageError error={error} resourceName="attendance" onRetry={() => refetch()} />
     )
   }
 

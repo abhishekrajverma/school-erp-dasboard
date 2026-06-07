@@ -2,6 +2,7 @@
 
 import { GraduationCap, Calendar } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
+import { NavbarGreetingContainer } from '@/components/festivals/festival-greeting'
 import { SCHOOL_CONFIG } from '@/lib/admission/constants'
 
 interface AdmissionHeaderProps {
@@ -36,7 +37,8 @@ export function AdmissionHeader({ academicSession }: AdmissionHeaderProps) {
               </p>
             </div>
           </div>
-          <div className="flex flex-wrap gap-2 sm:flex-col sm:items-end">
+          <div className="flex flex-wrap items-center gap-2 sm:flex-col sm:items-end">
+            <NavbarGreetingContainer />
             <Badge variant="secondary" className="gap-1.5 px-3 py-1.5 text-sm">
               <Calendar className="h-3.5 w-3.5" />
               Session {session}

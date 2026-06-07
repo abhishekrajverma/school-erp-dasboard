@@ -20,6 +20,8 @@ import { ApiPageLoading, ApiPageError } from '@/components/shared/api-page-state
 import type { SubjectDto, ExamDto } from '@/lib/api/types/resources'
 import { subjectSchema, examSchema, type SubjectFormData, type ExamFormData } from '@/lib/schemas'
 import { exportToCsv } from '@/lib/export'
+import { SchoolClassSelect } from '@/components/shared/school-class-select'
+import { useSchoolClasses } from '@/hooks/use-school-classes'
 import { useClasses, useSubjects, useExams, useTimetable, useTeachers } from '@/hooks/api'
 import { isApiError } from '@/lib/api/interceptors/errors'
 import { toast } from 'sonner'
@@ -33,6 +35,7 @@ export default function AcademicsPage() {
   const { data: examsData, isLoading: examsLoading, isError: examsError, error: examsErr, refetch: refetchExams } = useExams({ page: 1, pageSize: 100 })
   const { data: timetableData, isLoading: ttLoading, isError: ttError, error: ttErr, refetch: refetchTt } = useTimetable({ page: 1, pageSize: 100 })
   const { data: teachersData } = useTeachers({ page: 1, pageSize: 100 })
+  const { classes: schoolClasses, sections: schoolSections } = useSchoolClasses()
 
   const classes = classesData?.items ?? []
   const subjects = subjectsData?.items ?? []
@@ -100,7 +103,8 @@ export default function AcademicsPage() {
   if (isError) {
     return (
       <ApiPageError
-        message={isApiError(error) ? error.message : 'Failed to load academics data from EduSync.'}
+        error={error}
+        resourceName="academics"
         onRetry={() => { void refetchClasses(); void refetchSubjects(); void refetchExams(); void refetchTt() }}
       />
     )
@@ -114,14 +118,14 @@ export default function AcademicsPage() {
         </PageHeader>
 
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <StatCard title="Classes" value={classes.length} icon={Layers} />
+          <StatCard title="Classes" value={classes.length > 0 ? classes.length : schoolClasses.length} icon={Layers} />
           <StatCard title="Subjects" value={subjects.length} icon={BookOpen} />
           <StatCard title="Scheduled Exams" value={exams.filter((e) => e.status === 'scheduled').length} icon={GraduationCap} />
           <StatCard title="Total Students" value={classes.reduce((a, c) => a + c.totalStudents, 0)} icon={Clock} />
         </motion.div>
 
         <Tabs tabs={[
-          { id: 'classes', label: 'Classes', count: classes.length },
+          { id: 'classes', label: 'Classes', count: classes.length > 0 ? classes.length : schoolClasses.length },
           { id: 'subjects', label: 'Subjects', count: subjects.length },
           { id: 'timetable', label: 'Timetable' },
           { id: 'exams', label: 'Exams', count: exams.length },
@@ -129,9 +133,12 @@ export default function AcademicsPage() {
 
         {activeTab === 'classes' && (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {classes.length === 0 ? (
-              <p className="col-span-full py-8 text-center text-sm text-muted-foreground">No classes configured.</p>
-            ) : classes.map((cls) => (
+            {classes.length === 0 && schoolClasses.length === 0 ? (
+              <p className="col-span-full py-8 text-center text-sm text-muted-foreground">
+                No classes configured. Add them in Settings → Master Data → Classes & sections.
+              </p>
+            ) : classes.length > 0 ? (
+              classes.map((cls) => (
               <Card key={cls.id} className="hover:shadow-lg hover:shadow-primary/5 transition-all">
                 <CardHeader><CardTitle className="text-base">{cls.name}</CardTitle><CardDescription>Section {cls.section}</CardDescription></CardHeader>
                 <CardContent className="text-sm space-y-2">
@@ -139,7 +146,20 @@ export default function AcademicsPage() {
                   <div className="flex justify-between"><span className="text-muted-foreground">Class Teacher</span><span>{cls.classTeacher ?? '—'}</span></div>
                 </CardContent>
               </Card>
-            ))}
+            ))
+            ) : (
+              schoolClasses.map((name) => (
+                <Card key={name} className="hover:shadow-lg hover:shadow-primary/5 transition-all">
+                  <CardHeader>
+                    <CardTitle className="text-base">{name}</CardTitle>
+                    <CardDescription>Sections {schoolSections.join(', ')}</CardDescription>
+                  </CardHeader>
+                  <CardContent className="text-sm text-muted-foreground">
+                    From school master data
+                  </CardContent>
+                </Card>
+              ))
+            )}
           </div>
         )}
 
@@ -184,7 +204,13 @@ export default function AcademicsPage() {
         <FormSection title="Subject">
           <FormField label="Name"><Input {...subjectForm.register('name')} /></FormField>
           <FormField label="Code"><Input {...subjectForm.register('code')} /></FormField>
-          <FormField label="Class"><Input {...subjectForm.register('class')} /></FormField>
+          <FormField label="Class">
+            <SchoolClassSelect
+              value={subjectForm.watch('class')}
+              onValueChange={(v) => subjectForm.setValue('class', v)}
+              extraClasses={[...new Set(subjects.map((s) => s.class).filter(Boolean))]}
+            />
+          </FormField>
           <FormField label="Teacher">
             <Select value={subjectForm.watch('teacherId')} onValueChange={(v) => subjectForm.setValue('teacherId', v)}>
               <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
@@ -199,7 +225,13 @@ export default function AcademicsPage() {
         <FormSection title="Exam Details">
           <FormField label="Exam Name"><Input {...examForm.register('examName')} /></FormField>
           <FormField label="Subject"><Input {...examForm.register('subject')} /></FormField>
-          <FormField label="Class"><Input {...examForm.register('class')} /></FormField>
+          <FormField label="Class">
+            <SchoolClassSelect
+              value={examForm.watch('class')}
+              onValueChange={(v) => examForm.setValue('class', v)}
+              extraClasses={[...new Set(exams.map((e) => e.class).filter(Boolean))]}
+            />
+          </FormField>
           <FormField label="Date"><Input type="date" {...examForm.register('date')} /></FormField>
           <FormField label="Start Time"><Input {...examForm.register('startTime')} /></FormField>
           <FormField label="Duration (min)"><Input type="number" {...examForm.register('duration', { valueAsNumber: true })} /></FormField>

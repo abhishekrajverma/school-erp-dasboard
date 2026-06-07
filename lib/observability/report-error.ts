@@ -68,6 +68,7 @@ export function formatErrorForLog(error: unknown): Record<string, unknown> {
 export function shouldReportError(error: unknown): boolean {
   const status = getApiErrorStatus(error)
   if (status === 401 || status === 403 || status === 404) return false
+  if (status === 0 || status === 503 || status === 502 || status === 504) return false
   return true
 }
 

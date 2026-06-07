@@ -260,10 +260,7 @@ export default function HRPage() {
   if (isLoading) return <ApiPageLoading />
   if (isError) {
     return (
-      <ApiPageError
-        message={isApiError(error) ? error.message : 'Failed to load HR data from EduSync.'}
-        onRetry={() => refetch()}
-      />
+      <ApiPageError error={error} resourceName="HR records" onRetry={() => refetch()} />
     )
   }
 
