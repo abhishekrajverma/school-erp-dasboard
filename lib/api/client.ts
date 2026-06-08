@@ -6,6 +6,8 @@ import {
 } from './interceptors/correlation'
 import { ApiError, createNetworkError, parseApiError } from './interceptors/errors'
 import { applyTenantHeaders } from './interceptors/tenant'
+import { applyFinancialYearHeaders } from './interceptors/financial-year'
+import { resolveProxyHeaderScope, type ProxyHeaderScope } from '@/lib/api/proxy-policy'
 import { reportError, shouldReportError } from '@/lib/observability/report-error'
 
 export { ApiError } from './interceptors/errors'
@@ -19,6 +21,8 @@ export type ApiRequestOptions = RequestInit & {
   /** Skip JSON Content-Type (file uploads) */
   rawBody?: boolean
   correlationId?: string
+  /** Header scope for tenant / financial-year forwarding */
+  scope?: ProxyHeaderScope
 }
 
 function buildUrl(path: string): string {
@@ -27,14 +31,24 @@ function buildUrl(path: string): string {
 }
 
 export async function api<T>(path: string, options: ApiRequestOptions = {}): Promise<T> {
-  const { skipAuthRetry = false, rawBody = false, correlationId, ...init } = options
+  const {
+    skipAuthRetry = false,
+    rawBody = false,
+    correlationId,
+    scope,
+    ...init
+  } = options
+
+  const headerScope =
+    scope ?? resolveProxyHeaderScope(path.replace(/^\/+/, ''), init.method ?? 'GET')
 
   const headers = new Headers(init.headers)
   if (!rawBody && !headers.has('Content-Type') && init.body) {
     headers.set('Content-Type', 'application/json')
   }
   headers.set(CORRELATION_HEADER, getOrCreateCorrelationId(correlationId))
-  applyTenantHeaders(headers)
+  applyTenantHeaders(headers, headerScope)
+  applyFinancialYearHeaders(headers, headerScope)
 
   const execute = async (): Promise<Response> => {
     try {

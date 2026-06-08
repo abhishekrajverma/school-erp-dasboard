@@ -5,6 +5,7 @@ import type { UserRole } from '@/lib/portal-users'
 export type LoginRequest = {
   email: string
   password: string
+  financialYear?: string
 }
 
 export type LoginResponse = {

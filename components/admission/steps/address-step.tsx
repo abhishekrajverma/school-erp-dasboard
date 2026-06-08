@@ -16,7 +16,7 @@ import { FormCard, FormGrid } from '@/components/admission/form-card'
 import { YesNoField } from '@/components/admission/yes-no-field'
 import type { AdmissionFormValues } from '@/lib/admission/types'
 import { INDIAN_STATES, TRANSPORT_SHIFT_OPTIONS } from '@/lib/admission/constants'
-import { routesData } from '@/lib/erp-data'
+import { useTransportRoutes } from '@/hooks/api'
 import { formatIndianMobile } from '@/lib/admission/validators'
 
 interface StepProps {
@@ -33,7 +33,8 @@ export function AddressStep({ form }: StepProps) {
 
   const optsForTransport = watch('optsForTransport')
   const selectedRouteId = watch('transportRouteId')
-  const activeRoutes = routesData.filter((r) => r.status === 'active')
+  const routesQuery = useTransportRoutes({ page: 1, pageSize: 100 })
+  const activeRoutes = (routesQuery.data?.items ?? []).filter((r) => r.status === 'active')
   const selectedRoute = activeRoutes.find((r) => r.id === selectedRouteId)
 
   const clearTransportFields = () => {

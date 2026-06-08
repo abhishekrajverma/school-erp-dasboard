@@ -14,6 +14,8 @@ export type AuthUser = AuthSession
 export type LoginCredentials = {
   email: string
   password: string
+  /** Required for admin — scopes session data to this financial year */
+  financialYear?: string
 }
 
 export type AuthContextValue = {
@@ -37,5 +39,7 @@ export function getRoleHomePath(role: UserRole): string {
       return '/student-portal'
     case 'parent':
       return '/parent-portal'
+    case 'company':
+      return '/company'
   }
 }

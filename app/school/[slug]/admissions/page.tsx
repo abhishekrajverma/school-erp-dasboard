@@ -12,7 +12,7 @@ type PageProps = {
 
 export default async function SchoolAdmissionsPage({ params }: PageProps) {
   const { slug } = await params
-  const site = getSchoolWebsiteStatic(slug)
+  const site = await getSchoolWebsiteStatic(slug)
   if (!site) notFound()
 
   const base = getSchoolWebsitePath(slug)

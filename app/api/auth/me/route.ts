@@ -6,8 +6,14 @@ import {
 
 export async function GET() {
   const token = await getAccessTokenFromRequest()
-  const user = await resolveUserFromToken(token)
+  if (!token) {
+    return NextResponse.json(
+      { code: 'UNAUTHORIZED', message: 'Not authenticated' },
+      { status: 401 },
+    )
+  }
 
+  const user = await resolveUserFromToken(token)
   if (!user) {
     return NextResponse.json(
       { code: 'UNAUTHORIZED', message: 'Not authenticated' },

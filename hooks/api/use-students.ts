@@ -6,12 +6,14 @@ import { queryKeys } from '@/hooks/api/query-keys'
 import type { CreateStudentRequest, UpdateStudentRequest } from '@/lib/api/types/students'
 import type { ListQueryParams } from '@/lib/api/types/common'
 import { useAuthQueryEnabled } from './use-auth-query'
+import { useQueryFinancialYear } from '@/hooks/use-query-financial-year'
 
 export function useStudents(params?: ListQueryParams) {
   const enabled = useAuthQueryEnabled()
+  const financialYear = useQueryFinancialYear()
 
   return useQuery({
-    queryKey: queryKeys.students.list(params),
+    queryKey: queryKeys.students.list({ ...(params ?? {}), financialYear }),
     queryFn: () => studentsApi.list(params),
     enabled,
   })

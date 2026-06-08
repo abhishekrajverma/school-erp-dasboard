@@ -31,8 +31,12 @@ export const authApi = {
   me: () =>
     fetch('/api/auth/me', { credentials: 'include' }).then(async (res) => {
       if (!res.ok) {
-        const err = await res.json().catch(() => ({}))
-        throw new Error(err.message ?? 'Not authenticated')
+        const err = (await res.json().catch(() => ({}))) as { message?: string; code?: string }
+        throw new ApiError(
+          res.status,
+          err.code ?? `HTTP_${res.status}`,
+          err.message ?? 'Not authenticated',
+        )
       }
       return res.json() as Promise<AuthUser>
     }),

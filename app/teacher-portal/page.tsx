@@ -68,7 +68,6 @@ import {
   loadTeacherProfilePhotos,
   removeTeacherProfilePhoto,
   saveTeacherProfilePhoto,
-  teacherDutyRequestsData,
   type TeacherDutyRequest,
 } from '@/lib/teacher-portal'
 import { useToast } from '@/hooks/use-toast'
@@ -97,7 +96,7 @@ function TeacherPortalContent() {
   const teacherId = session?.userId ?? ''
   const { toast } = useToast()
   const [activeTab, setActiveTab] = React.useState('overview')
-  const [dutyRequests, setDutyRequests] = React.useState(teacherDutyRequestsData)
+  const [dutyRequests, setDutyRequests] = React.useState<TeacherDutyRequest[]>([])
   const [showApplyLeave, setShowApplyLeave] = React.useState(false)
   const [proofDocument, setProofDocument] = React.useState<UploadedFileMeta | null>(null)
   const [proofError, setProofError] = React.useState<string | null>(null)
@@ -739,7 +738,7 @@ function TeacherPortalContent() {
                   Profile & contact
                 </CardTitle>
                 <CardDescription>
-                  Upload your photo and update contact details. Saved locally in this demo.
+                  Upload your photo and update contact details. Changes sync with your school account when saved.
                 </CardDescription>
               </CardHeader>
               <CardContent>

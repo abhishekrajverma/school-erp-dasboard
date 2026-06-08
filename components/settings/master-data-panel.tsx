@@ -12,6 +12,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { FormSection, FormField } from '@/components/shared/page-components'
 import { masterDataSchema, type MasterDataFormData } from '@/lib/schemas'
 import { useMasterData } from '@/hooks/use-master-data'
+import { displayFinancialYear } from '@/lib/financial-year'
 import { admissionNumberPlaceholder, formatEmployeeId, formatRollNumber, formatClassRangeSummary, buildClassRange, parseClassList, classListBounds } from '@/lib/master-data/format'
 import { useToast } from '@/hooks/use-toast'
 import { WorkingDaysSelect } from '@/components/settings/working-days-select'
@@ -19,7 +20,7 @@ import { ClassListSelect } from '@/components/settings/class-list-select'
 
 export function MasterDataPanel() {
   const { toast } = useToast()
-  const { data, save } = useMasterData()
+  const { data, save, financialYear } = useMasterData()
 
   const form = useForm<MasterDataFormData>({
     resolver: zodResolver(masterDataSchema),
@@ -27,13 +28,13 @@ export function MasterDataPanel() {
   })
 
   React.useEffect(() => {
-    form.reset(data)
+    form.reset({ ...data, academicYear: financialYear })
     const bounds = classListBounds(parseClassList(data.classList))
     if (bounds) {
       form.setValue('classStartFrom', bounds.start)
       form.setValue('classEndAt', bounds.end)
     }
-  }, [data, form])
+  }, [data, form, financialYear])
 
   const watchPrefix = form.watch('admissionNumberPrefix')
   const watchStart = form.watch('admissionNumberStartFrom')
@@ -106,10 +107,10 @@ export function MasterDataPanel() {
   }
 
   const onSubmit = (values: MasterDataFormData) => {
-    save(values)
+    save({ ...values, academicYear: financialYear })
     toast({
       title: 'Master data saved',
-      description: 'School defaults are updated for this tenant. New students will use these rules.',
+      description: `School defaults updated for FY ${displayFinancialYear(financialYear)}.`,
     })
   }
 
@@ -123,8 +124,11 @@ export function MasterDataPanel() {
               Master Data
             </CardTitle>
             <CardDescription>
-              Configure admission numbers, academic calendar, sections, fees, and other school-wide defaults.
-              Stored per tenant until the settings API is connected.
+              Configure admission numbers, calendar, sections, fees, and other defaults for{' '}
+              <span className="font-medium text-foreground">
+                FY {displayFinancialYear(financialYear)}
+              </span>
+              . Each financial year keeps its own master data.
             </CardDescription>
           </div>
           <Button size="sm" className="gap-2 shrink-0" onClick={form.handleSubmit(onSubmit)}>
@@ -136,10 +140,15 @@ export function MasterDataPanel() {
           <form className="space-y-8" onSubmit={form.handleSubmit(onSubmit)}>
             <FormSection
               title="Academic calendar"
-              description="Session dates and year shown across the dashboard."
+              description="Session dates for the active financial year."
             >
-              <FormField label="Academic year" required error={form.formState.errors.academicYear?.message}>
-                <Input {...form.register('academicYear')} placeholder="2025-26" />
+              <FormField label="Financial year (active session)">
+                <Input
+                  value={`FY ${displayFinancialYear(financialYear)}`}
+                  readOnly
+                  disabled
+                  className="bg-muted/40"
+                />
               </FormField>
               <FormField label="Affiliation board">
                 <Input {...form.register('affiliationBoard')} placeholder="CBSE, ICSE, State Board…" />

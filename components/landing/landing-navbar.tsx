@@ -7,6 +7,7 @@ import { Menu, Moon, Sparkles, Sun, X } from 'lucide-react'
 import { useTheme } from 'next-themes'
 import { Button } from '@/components/ui/button'
 import { brand } from '@/lib/landing/content'
+import { salesContact } from '@/lib/landing/sales'
 import { NavbarGreetingContainer } from '@/components/festivals/festival-greeting'
 import { cn } from '@/lib/utils'
 
@@ -82,7 +83,7 @@ export function LandingNavbar() {
             <Link href="/login">Login</Link>
           </Button>
           <Button className="hidden sm:inline-flex shadow-lg shadow-primary/20" asChild>
-            <Link href="/get-started?plan=professional">Start Free Trial</Link>
+            <Link href="/get-started?plan=professional">{salesContact.cta}</Link>
           </Button>
           <Button variant="ghost" size="icon" className="md:hidden" onClick={() => setOpen(!open)}>
             {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
@@ -108,7 +109,7 @@ export function LandingNavbar() {
               </a>
             ))}
             <Button asChild className="mt-2">
-              <Link href="/get-started?plan=professional">Start Free Trial</Link>
+              <Link href="/get-started?plan=professional">{salesContact.cta}</Link>
             </Button>
           </nav>
         </motion.div>

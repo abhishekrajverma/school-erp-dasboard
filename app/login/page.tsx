@@ -18,19 +18,30 @@ import {
   UserCheck,
   UserCircle,
   Users,
+  Building2,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { FadeUpLine, StaggeredWords, TypewriterText } from '@/components/auth/login-text-animations'
 import { RotatingText } from '@/components/shared/rotating-text'
 import { brand, hero } from '@/lib/landing/content'
 import { CompanyBranding } from '@/components/shared/company-branding'
 import { getRoleHomePath } from '@/lib/auth'
-import { demoLoginHints, type UserRole } from '@/lib/portal-users'
+import type { UserRole } from '@/lib/portal-users'
 import { useAuth } from '@/components/providers/auth-provider'
 import { cn } from '@/lib/utils'
 import { InlineApiError } from '@/components/shared/api-page-state'
+import { env } from '@/lib/config/env'
+import { DEFAULT_DEMO_TENANT } from '@/lib/tenant/constants'
+import {
+  displayFinancialYear,
+  loadActiveFinancialYear,
+  loadFinancialYearConfig,
+  parseFinancialYearsList,
+  saveActiveFinancialYear,
+} from '@/lib/financial-year'
 
 const LOGIN_DESCRIPTION =
   'Sign in as admin, principal, teacher, student, or parent—each account sees only their own school data.'
@@ -41,6 +52,7 @@ const roleOptions: {
   icon: React.ComponentType<{ className?: string }>
 }[] = [
   { id: 'admin', label: 'Admin', icon: Users },
+  { id: 'company', label: 'Company', icon: Building2 },
   { id: 'principal', label: 'Principal', icon: Landmark },
   { id: 'teacher', label: 'Teacher', icon: UserCheck },
   { id: 'student', label: 'Student', icon: GraduationCap },
@@ -74,26 +86,38 @@ export default function LoginPage() {
   const router = useRouter()
   const { login, isAuthenticated, user, isLoading } = useAuth()
   const [role, setRole] = React.useState<UserRole>('teacher')
-  const [email, setEmail] = React.useState(demoLoginHints.teacher.email)
-  const [password, setPassword] = React.useState(demoLoginHints.teacher.password)
+  const [email, setEmail] = React.useState('')
+  const [password, setPassword] = React.useState('')
   const [showPassword, setShowPassword] = React.useState(false)
   const [isSubmitting, setIsSubmitting] = React.useState(false)
   const [loginError, setLoginError] = React.useState<unknown | null>(null)
   const [focusedField, setFocusedField] = React.useState<'email' | 'password' | null>(null)
+  const tenantId = env.defaultTenantId ?? DEFAULT_DEMO_TENANT.id
+  const [financialYearOptions] = React.useState(() =>
+    parseFinancialYearsList(loadFinancialYearConfig(tenantId).financialYearsList),
+  )
+  const [financialYear, setFinancialYear] = React.useState(() => {
+    const config = loadFinancialYearConfig(tenantId)
+    return loadActiveFinancialYear(tenantId, config.defaultFinancialYear)
+  })
 
   React.useEffect(() => {
     if (isLoading) return
-    if (isAuthenticated && user) {
-      router.replace(getRoleHomePath(user.role))
-    }
+    if (!isAuthenticated || !user) return
+    router.replace(getRoleHomePath(user.role))
   }, [router, isAuthenticated, user, isLoading])
+
+  if (isLoading || (isAuthenticated && user)) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    )
+  }
 
   const handleRoleChange = (nextRole: UserRole) => {
     setRole(nextRole)
     setLoginError(null)
-    const hint = demoLoginHints[nextRole]
-    setEmail(hint.email)
-    setPassword(hint.password)
   }
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -104,8 +128,15 @@ export default function LoginPage() {
     setLoginError(null)
 
     try {
-      const account = await login({ email: email.trim(), password })
-      router.push(getRoleHomePath(account.role))
+      const account = await login({
+        email: email.trim(),
+        password,
+        ...(role === 'admin' ? { financialYear } : {}),
+      })
+      if (role === 'admin') {
+        saveActiveFinancialYear(tenantId, financialYear)
+      }
+      router.replace(getRoleHomePath(account.role))
     } catch (err) {
       setLoginError(err)
     } finally {
@@ -250,7 +281,7 @@ export default function LoginPage() {
                   </FadeUpLine>
                 </motion.div>
 
-                <motion.div variants={itemVariants} className="grid grid-cols-3 gap-1 rounded-lg border border-border/60 bg-muted/30 p-1 sm:grid-cols-5">
+                <motion.div variants={itemVariants} className="grid grid-cols-2 gap-1 rounded-lg border border-border/60 bg-muted/30 p-1 sm:grid-cols-3 lg:grid-cols-6">
                   {roleOptions.map((opt) => {
                     const Icon = opt.icon
                     const active = role === opt.id
@@ -272,6 +303,27 @@ export default function LoginPage() {
                     )
                   })}
                 </motion.div>
+
+                {role === 'admin' ? (
+                  <motion.div variants={itemVariants} className="space-y-2">
+                    <Label htmlFor="financial-year">Financial year</Label>
+                    <Select value={financialYear} onValueChange={setFinancialYear}>
+                      <SelectTrigger id="financial-year" className="h-11">
+                        <SelectValue placeholder="Select financial year" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {financialYearOptions.map((year) => (
+                          <SelectItem key={year} value={year}>
+                            FY {displayFinancialYear(year)}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">
+                      Admin data is scoped to the selected financial year (e.g. 23-24 vs 25-26).
+                    </p>
+                  </motion.div>
+                ) : null}
 
                 <form onSubmit={handleSubmit} className="space-y-5">
                   <motion.div variants={itemVariants} className="space-y-2">
@@ -350,14 +402,6 @@ export default function LoginPage() {
                     </motion.div>
                   ) : null}
 
-                  <motion.div
-                    variants={itemVariants}
-                    className="rounded-lg border border-primary/15 bg-primary/5 px-3 py-2.5 text-xs text-muted-foreground"
-                  >
-                    <span className="font-medium text-foreground">Demo — {demoLoginHints[role].label}:</span>{' '}
-                    {demoLoginHints[role].email} / {demoLoginHints[role].password}
-                  </motion.div>
-
                   <motion.div variants={itemVariants}>
                     <label className="flex cursor-pointer items-center gap-2 text-sm text-muted-foreground">
                       <input
@@ -410,7 +454,7 @@ export default function LoginPage() {
                 >
                   New to {brand.name}?{' '}
                   <Link href="/get-started" className="font-medium text-primary hover:underline">
-                    Start free trial
+                    Connect for pricing
                   </Link>
                 </motion.p>
               </motion.div>

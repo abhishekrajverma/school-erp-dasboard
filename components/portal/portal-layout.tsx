@@ -39,9 +39,6 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { useAuth } from '@/components/providers/auth-provider'
 import type { UserRole } from '@/lib/portal-users'
-import { getTeacherById } from '@/lib/teacher-portal'
-import { getStudentById } from '@/lib/student-portal'
-import { getParentById } from '@/lib/parent-portal'
 import {
   getParentProfilePhotoUrl,
   loadParentProfilePhotos,
@@ -55,7 +52,6 @@ import {
   getPrincipalPortalTabFromSearch,
   type PrincipalPortalTabId,
 } from '@/lib/principal-portal-nav'
-import { getPrincipalProfile } from '@/lib/principal-portal'
 import { SignedInRoleLabel } from '@/components/portal/signed-in-role-label'
 
 type PortalNavItem = {
@@ -67,6 +63,7 @@ type PortalNavItem = {
 
 const navByRole: Record<UserRole, PortalNavItem[]> = {
   admin: [],
+  company: [],
   principal: [
     { name: 'Overview', href: '/principal-portal', icon: LayoutDashboard, tab: 'overview' },
     {
@@ -101,73 +98,55 @@ function usePortalUser(session: ReturnType<typeof useAuth>['user'], _profileVers
   void _profileVersion
   if (!session) return null
 
+  const initials = session.name
+    .split(' ')
+    .map((n) => n[0])
+    .join('')
+    .slice(0, 2)
+
   if (session.role === 'teacher') {
-    const teacher = getTeacherById(session.userId)
     const photos = loadTeacherProfilePhotos()
     return {
       name: session.name,
-      subtitle: teacher?.department ?? 'Teacher',
-      avatar: teacher
-        ? getTeacherProfilePhotoUrl(session.userId, photos, teacher.avatar)
-        : undefined,
-      initials: session.name
-        .split(' ')
-        .map((n) => n[0])
-        .join('')
-        .slice(0, 2),
+      subtitle: 'Teacher',
+      avatar: getTeacherProfilePhotoUrl(session.userId, photos),
+      initials,
     }
   }
 
   if (session.role === 'student') {
-    const student = getStudentById(session.userId)
     return {
       name: session.name,
-      subtitle: student ? `Class ${student.class}` : 'Student',
-      avatar: student?.avatar,
-      initials: session.name
-        .split(' ')
-        .map((n) => n[0])
-        .join('')
-        .slice(0, 2),
+      subtitle: 'Student',
+      avatar: undefined,
+      initials,
     }
   }
 
   if (session.role === 'parent') {
-    const parent = getParentById(session.userId)
     const photos = loadParentProfilePhotos()
     return {
       name: session.name,
       subtitle: 'Parent / Guardian',
-      avatar: parent
-        ? getParentProfilePhotoUrl(session.userId, photos, parent.avatar)
-        : undefined,
-      initials: session.name
-        .split(' ')
-        .map((n) => n[0])
-        .join('')
-        .slice(0, 2),
+      avatar: getParentProfilePhotoUrl(session.userId, photos),
+      initials,
     }
   }
 
   if (session.role === 'principal') {
-    const principal = getPrincipalProfile()
     return {
       name: session.name,
-      subtitle: principal.title,
-      avatar: principal.avatar,
-      initials: session.name
-        .split(' ')
-        .map((n) => n[0])
-        .join('')
-        .slice(0, 2),
+      subtitle: 'Principal',
+      avatar: undefined,
+      initials,
     }
   }
 
   return {
     name: session.name,
-    subtitle: 'Admin',
+    subtitle: session.role === 'company' ? 'Company Admin' : 'Admin',
     avatar: undefined,
-    initials: 'AD',
+    initials,
   }
 }
 

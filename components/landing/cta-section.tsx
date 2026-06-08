@@ -5,6 +5,7 @@ import { motion, useInView } from 'framer-motion'
 import * as React from 'react'
 import { ArrowRight, Rocket } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { salesContact } from '@/lib/landing/sales'
 
 export function CtaSection() {
   const ref = React.useRef(null)
@@ -28,12 +29,12 @@ export function CtaSection() {
             Launch your branded school portal in under 15 minutes
           </h2>
           <p className="mt-4 max-w-xl text-muted-foreground">
-            Join 3,240+ institutions using EduSync for admissions, fees, attendance, and parent engagement — all from one secure cloud ERP.
+            Join 3,240+ institutions using EduSync for admissions, fees, attendance, and parent engagement — talk to us for a plan that fits your school.
           </p>
           <div className="mt-8 flex flex-wrap justify-center gap-3">
             <Button size="lg" className="h-12 gap-2 px-8 shadow-xl shadow-primary/25" asChild>
               <Link href="/get-started?plan=professional">
-                Start Free Trial
+                {salesContact.cta}
                 <ArrowRight className="h-4 w-4" />
               </Link>
             </Button>

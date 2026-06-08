@@ -26,6 +26,9 @@ export async function handleUnauthorized(): Promise<boolean> {
   if (refreshed) return true
 
   if (typeof window !== 'undefined') {
+    await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' }).catch(
+      () => undefined,
+    )
     const { clearSession } = await import('@/lib/auth/session')
     clearSession()
     if (!window.location.pathname.startsWith('/login')) {

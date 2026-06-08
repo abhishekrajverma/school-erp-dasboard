@@ -7,6 +7,8 @@ import {
   getInitialTenant,
   saveTenantToStorage,
 } from '@/lib/tenant/storage'
+import { useAuth } from '@/components/providers/auth-provider'
+import { DEFAULT_DEMO_TENANT } from '@/lib/tenant/constants'
 
 const TenantContext = React.createContext<TenantContextValue | null>(null)
 
@@ -20,6 +22,7 @@ async function syncTenantCookie(tenantId: string) {
 }
 
 export function TenantProvider({ children }: { children: React.ReactNode }) {
+  const { user } = useAuth()
   const [tenant, setTenantState] = React.useState<Tenant | null>(null)
   const [isLoading, setIsLoading] = React.useState(true)
 
@@ -29,6 +32,22 @@ export function TenantProvider({ children }: { children: React.ReactNode }) {
     void syncTenantCookie(initial.id)
     setIsLoading(false)
   }, [])
+
+  React.useEffect(() => {
+    if (!user?.tenantId || user.role === 'company') return
+
+    setTenantState((current) => {
+      if (current?.id === user.tenantId) return current
+      const next: Tenant = {
+        id: user.tenantId!,
+        slug: current?.slug ?? DEFAULT_DEMO_TENANT.slug,
+        name: current?.name ?? DEFAULT_DEMO_TENANT.name,
+      }
+      saveTenantToStorage(next)
+      void syncTenantCookie(next.id)
+      return next
+    })
+  }, [user?.tenantId, user?.role])
 
   const setTenant = React.useCallback((next: Tenant) => {
     saveTenantToStorage(next)

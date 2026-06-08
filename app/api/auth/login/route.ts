@@ -8,11 +8,17 @@ import {
   SERVER_UNAVAILABLE_MESSAGE,
 } from '@/lib/api/interceptors/errors'
 import { TENANT_COOKIE } from '@/lib/tenant/constants'
+import { FINANCIAL_YEAR_COOKIE } from '@/lib/financial-year/constants'
+import { normalizeFinancialYear } from '@/lib/financial-year/format'
 import { getSecureCookieOptions } from '@/lib/auth/cookies'
 
 export async function POST(request: Request) {
   try {
-    const body = (await request.json()) as { email?: string; password?: string }
+    const body = (await request.json()) as {
+      email?: string
+      password?: string
+      financialYear?: string
+    }
     const email = body.email?.trim() ?? ''
     const password = body.password ?? ''
 
@@ -38,6 +44,21 @@ export async function POST(request: Request) {
       response.cookies.set(
         TENANT_COOKIE,
         user.tenantId,
+        getSecureCookieOptions(60 * 60 * 24 * 365),
+      )
+    } else if (user.role !== 'company') {
+      response.cookies.set(
+        TENANT_COOKIE,
+        '',
+        getSecureCookieOptions(0),
+      )
+    }
+
+    const financialYear = body.financialYear?.trim()
+    if (financialYear && user.role === 'admin') {
+      response.cookies.set(
+        FINANCIAL_YEAR_COOKIE,
+        normalizeFinancialYear(financialYear),
         getSecureCookieOptions(60 * 60 * 24 * 365),
       )
     }

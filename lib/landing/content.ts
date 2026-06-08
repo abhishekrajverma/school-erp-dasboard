@@ -42,9 +42,9 @@ export const hero = {
   ] as const,
   subheadline:
     'Admissions, attendance, fees, exams, transport, payroll, parent apps, and real-time analytics — all on secure cloud infrastructure built for CBSE, ICSE, State Board & international schools.',
-  primaryCta: 'Start 14-Day Free Trial',
+  primaryCta: 'Connect for pricing',
   secondaryCta: 'Explore Live Demo',
-  note: 'No credit card required · Setup in under 15 minutes',
+  note: 'Speak with our team for a custom quote — no online checkout.',
 }
 
 export const trustBadges = [
@@ -213,10 +213,10 @@ export const pricing = [
   {
     key: 'starter',
     name: 'Starter',
-    price: 2999,
-    period: 'month',
+    price: null,
+    period: 'custom',
     description: 'Perfect for boutique schools & pre-primary chains',
-    cta: 'Choose Starter',
+    cta: 'Connect for pricing',
     highlight: false,
     features: [
       'Up to 500 students',
@@ -230,10 +230,10 @@ export const pricing = [
   {
     key: 'professional',
     name: 'Professional',
-    price: 5999,
-    period: 'month',
+    price: null,
+    period: 'custom',
     description: 'Most chosen by growing CBSE/ICSE institutions',
-    cta: 'Choose Professional',
+    cta: 'Connect for pricing',
     highlight: true,
     features: [
       'Up to 2,000 students',
@@ -252,7 +252,7 @@ export const pricing = [
     price: null,
     period: 'custom',
     description: 'Groups, universities & white-label partners',
-    cta: 'Contact Sales',
+    cta: 'Connect for pricing',
     highlight: false,
     features: [
       'Unlimited students',

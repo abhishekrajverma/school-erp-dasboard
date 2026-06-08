@@ -10,7 +10,7 @@ type LayoutProps = {
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params
-  const site = getSchoolWebsiteStatic(slug)
+  const site = await getSchoolWebsiteStatic(slug)
   if (!site || !site.published) {
     return { title: 'School Not Found' }
   }
@@ -22,7 +22,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 
 export default async function SchoolWebsiteLayout({ children, params }: LayoutProps) {
   const { slug } = await params
-  const site = getSchoolWebsiteStatic(slug)
+  const site = await getSchoolWebsiteStatic(slug)
 
   if (!site || !site.published) {
     notFound()

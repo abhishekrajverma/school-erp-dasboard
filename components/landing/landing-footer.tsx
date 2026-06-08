@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { Bot, Database, ShieldCheck, Sparkles } from 'lucide-react'
 import { brand } from '@/lib/landing/content'
+import { salesContact } from '@/lib/landing/sales'
 
 export function LandingFooter() {
   return (
@@ -37,7 +38,7 @@ export function LandingFooter() {
                 Login
               </Link>
               <Link href="/get-started" className="block text-muted-foreground hover:text-foreground">
-                Get Started
+                {salesContact.cta}
               </Link>
             </div>
           </div>

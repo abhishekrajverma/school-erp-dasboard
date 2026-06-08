@@ -139,18 +139,9 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
                   )}
                 >
                   <Icon className="h-4 w-4 shrink-0" />
-                  <AnimatePresence mode="wait">
-                    {!collapsed && (
-                      <motion.span
-                        initial={{ opacity: 0, width: 0 }}
-                        animate={{ opacity: 1, width: 'auto' }}
-                        exit={{ opacity: 0, width: 0 }}
-                        className="truncate"
-                      >
-                        {item.name}
-                      </motion.span>
-                    )}
-                  </AnimatePresence>
+                  {!collapsed ? (
+                    <span className="min-w-0 flex-1 truncate">{item.name}</span>
+                  ) : null}
                 </Link>
               )
 

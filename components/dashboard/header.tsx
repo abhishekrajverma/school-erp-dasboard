@@ -47,6 +47,7 @@ import {
 import { useAuth } from '@/components/providers/auth-provider'
 import { useTenant } from '@/components/providers/tenant-provider'
 import { NavbarGreetingContainer } from '@/components/festivals/festival-greeting'
+import { FinancialYearSwitcher } from '@/components/dashboard/financial-year-switcher'
 import { useRouter } from 'next/navigation'
 
 interface HeaderProps {
@@ -145,6 +146,10 @@ export function Header({ sidebarCollapsed, onSidebarToggle }: HeaderProps) {
 
       {/* Festival greeting — navbar only */}
       <NavbarGreetingContainer className="hidden shrink-0 md:flex" />
+
+      {session?.role === 'admin' ? (
+        <FinancialYearSwitcher />
+      ) : null}
 
       {/* Right side - Quick Actions, Notifications, Theme, Profile */}
       <div className="flex items-center gap-2">

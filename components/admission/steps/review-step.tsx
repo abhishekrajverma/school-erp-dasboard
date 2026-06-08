@@ -17,7 +17,7 @@ import { Separator } from '@/components/ui/separator'
 import { FormCard } from '@/components/admission/form-card'
 import type { AdmissionFormValues } from '@/lib/admission/types'
 import { DOCUMENT_FIELDS, GENDER_OPTIONS, CATEGORY_OPTIONS, TRANSPORT_SHIFT_OPTIONS } from '@/lib/admission/constants'
-import { routesData } from '@/lib/erp-data'
+import { useTransportRoutes } from '@/hooks/api'
 import type { AdmissionStepId } from '@/lib/admission/constants'
 
 interface ReviewStepProps {
@@ -57,10 +57,11 @@ function SectionHeader({
 
 export function ReviewStep({ form, onEditStep }: ReviewStepProps) {
   const data = form.getValues()
+  const routesQuery = useTransportRoutes({ page: 1, pageSize: 100 })
 
   const genderLabel = GENDER_OPTIONS.find((g) => g.value === data.gender)?.label
   const categoryLabel = CATEGORY_OPTIONS.find((c) => c.value === data.category)?.label
-  const transportRoute = routesData.find((r) => r.id === data.transportRouteId)
+  const transportRoute = (routesQuery.data?.items ?? []).find((r) => r.id === data.transportRouteId)
   const transportShiftLabel = TRANSPORT_SHIFT_OPTIONS.find((s) => s.value === data.transportShift)?.label
 
   return (

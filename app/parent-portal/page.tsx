@@ -87,7 +87,7 @@ function ParentPortalContent() {
 
   const profilePhotos = React.useMemo(() => loadParentProfilePhotos(), [profileVersion])
   const profileDetails = React.useMemo(
-    () => (parent ? getParentProfileDetails(parent.id) : null),
+    () => (parent ? getParentProfileDetails(parent.id, parent) : null),
     [parent, profileVersion],
   )
   const profilePhotoUrl = parent
@@ -376,7 +376,11 @@ function ParentPortalContent() {
         )}
 
         {activeTab === 'notices' && (
-          <ParentNoticesPanel onNavigateToFees={() => setActiveTab('fees')} />
+          <ParentNoticesPanel
+            notices={parentNotices}
+            isLoading={noticesQuery.isLoading}
+            onNavigateToFees={() => setActiveTab('fees')}
+          />
         )}
 
         {activeTab === 'profile' && (

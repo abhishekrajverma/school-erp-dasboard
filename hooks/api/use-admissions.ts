@@ -5,10 +5,12 @@ import { admissionsApi } from '@/lib/api/admissions'
 import { queryKeys } from '@/hooks/api/query-keys'
 import type { CreateAdmissionRequest, UpdateAdmissionRequest } from '@/lib/api/types/admissions'
 import type { ListQueryParams } from '@/lib/api/types/common'
+import { useQueryFinancialYear } from '@/hooks/use-query-financial-year'
 
 export function useAdmissions(params?: ListQueryParams) {
+  const financialYear = useQueryFinancialYear()
   return useQuery({
-    queryKey: queryKeys.admissions.list(params),
+    queryKey: queryKeys.admissions.list({ ...(params ?? {}), financialYear }),
     queryFn: () => admissionsApi.list(params),
   })
 }

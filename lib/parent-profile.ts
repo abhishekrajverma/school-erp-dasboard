@@ -1,5 +1,3 @@
-import { getParentById } from './parent-portal'
-
 const PROFILE_PHOTOS_STORAGE_KEY = 'edusync-parent-profile-photos-v1'
 const PROFILE_DETAILS_STORAGE_KEY = 'edusync-parent-profile-details-v1'
 
@@ -41,7 +39,7 @@ export function removeParentProfilePhoto(parentId: string) {
 export function getParentProfilePhotoUrl(
   parentId: string,
   photos: Record<string, string>,
-  fallbackAvatar: string,
+  fallbackAvatar?: string,
 ) {
   return photos[parentId] ?? fallbackAvatar
 }
@@ -66,17 +64,22 @@ export function saveParentProfileDetails(parentId: string, details: ParentProfil
   localStorage.setItem(PROFILE_DETAILS_STORAGE_KEY, JSON.stringify(store))
 }
 
-export function getParentProfileDetails(parentId: string): ParentProfileDetails | null {
-  const parent = getParentById(parentId)
-  if (!parent) return null
-
+export function getParentProfileDetails(
+  parentId: string,
+  parent?: {
+    phone?: string
+    occupation?: string | null
+    address?: string | null
+  },
+): ParentProfileDetails | null {
   const saved = loadProfileDetailsStore()[parentId]
+  if (!parent && !saved) return null
 
   return {
-    phone: saved?.phone ?? parent.phone,
+    phone: saved?.phone ?? parent?.phone ?? '',
     alternatePhone: saved?.alternatePhone ?? '',
-    occupation: saved?.occupation ?? parent.occupation,
-    address: saved?.address ?? parent.address,
-    emergencyContact: saved?.emergencyContact ?? parent.phone,
+    occupation: saved?.occupation ?? parent?.occupation ?? '',
+    address: saved?.address ?? parent?.address ?? '',
+    emergencyContact: saved?.emergencyContact ?? parent?.phone ?? '',
   }
 }

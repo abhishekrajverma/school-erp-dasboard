@@ -6,6 +6,8 @@ export const PUBLIC_ROUTES = [
   '/school',
 ] as const
 
+export const COMPANY_ROUTE_PREFIX = '/company'
+
 /** Admin ERP dashboard routes (require admin role) */
 export const ADMIN_ROUTE_PREFIXES = [
   '/dashboard',

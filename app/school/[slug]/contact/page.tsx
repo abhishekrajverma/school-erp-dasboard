@@ -8,7 +8,7 @@ type PageProps = {
 
 export default async function SchoolContactPage({ params }: PageProps) {
   const { slug } = await params
-  const site = getSchoolWebsiteStatic(slug)
+  const site = await getSchoolWebsiteStatic(slug)
   if (!site) notFound()
 
   return <SchoolContactPageClient site={site} />

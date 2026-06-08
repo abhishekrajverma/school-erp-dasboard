@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import Link from 'next/link'
-import { ExternalLink, Globe, Save } from 'lucide-react'
+import { ExternalLink, Globe, Loader2, Save } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
@@ -10,36 +10,91 @@ import { Textarea } from '@/components/ui/textarea'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { FormField } from '@/components/shared/page-components'
 import { useToast } from '@/hooks/use-toast'
+import { BFF_BASE } from '@/lib/api/client'
 import {
   DEFAULT_SCHOOL_WEBSITE_SLUG,
-  getDefaultSchoolWebsite,
-  getSchoolWebsite,
   getSchoolWebsitePath,
   isWebsiteIncludedInPlan,
+  mergeSchoolWebsiteWithOverrides,
   saveSchoolWebsiteOverrides,
 } from '@/lib/school-website'
-import type { SchoolWebsitePatch } from '@/lib/school-website/types'
+import type { SchoolWebsite, SchoolWebsitePatch } from '@/lib/school-website/types'
+
+async function fetchSchoolWebsite(slug: string): Promise<SchoolWebsite | null> {
+  const response = await fetch(`${BFF_BASE}/tenants/by-slug/${encodeURIComponent(slug)}`, {
+    credentials: 'include',
+  })
+  if (!response.ok) return null
+  const tenant = await response.json()
+  return {
+    slug: tenant.slug ?? slug,
+    tenantId: tenant.id,
+    published: tenant.website?.published ?? tenant.status === 'live',
+    subscriptionPlan: tenant.planKey ?? 'professional',
+    schoolName: tenant.name ?? slug,
+    tagline: tenant.website?.tagline ?? '',
+    logo: tenant.website?.logo ?? '',
+    primaryColor: tenant.website?.primaryColor ?? '#4f46e5',
+    about: tenant.website?.about ?? '',
+    mission: tenant.website?.mission ?? '',
+    vision: tenant.website?.vision ?? '',
+    principalName: tenant.principalName ?? '',
+    principalMessage: tenant.website?.principalMessage ?? '',
+    establishedYear: tenant.website?.establishedYear ?? new Date().getFullYear(),
+    affiliationBoard: tenant.website?.affiliationBoard ?? '',
+    affiliationNumber: tenant.website?.affiliationNumber ?? '',
+    studentCount: tenant.website?.studentCount ?? 0,
+    teacherCount: tenant.website?.teacherCount ?? 0,
+    email: tenant.schoolEmail ?? '',
+    phone: tenant.phone ?? '',
+    address: tenant.address ?? '',
+    city: tenant.city ?? '',
+    state: tenant.state ?? '',
+    pincode: tenant.pincode ?? '',
+    socialLinks: tenant.website?.socialLinks ?? {},
+    feeStructure: tenant.website?.feeStructure ?? [],
+    feeNotes: tenant.website?.feeNotes,
+    announcements: tenant.website?.announcements ?? [],
+    facilities: tenant.website?.facilities ?? [],
+    admissionOpen: tenant.website?.admissionOpen ?? false,
+    admissionDeadline: tenant.website?.admissionDeadline,
+    admissionProcess: tenant.website?.admissionProcess ?? [],
+    officeHours: tenant.website?.officeHours ?? '',
+  }
+}
 
 export function SchoolWebsiteAdminPanel() {
   const { toast } = useToast()
-  const seed = getDefaultSchoolWebsite()
-  const [draft, setDraft] = React.useState(() => {
-    if (typeof window !== 'undefined') {
-      return getSchoolWebsite(DEFAULT_SCHOOL_WEBSITE_SLUG) ?? seed
-    }
-    return seed
-  })
+  const [draft, setDraft] = React.useState<SchoolWebsite | null>(null)
+  const [isLoading, setIsLoading] = React.useState(true)
 
   React.useEffect(() => {
-    const merged = getSchoolWebsite(DEFAULT_SCHOOL_WEBSITE_SLUG)
-    if (merged) setDraft(merged)
+    let active = true
+    void fetchSchoolWebsite(DEFAULT_SCHOOL_WEBSITE_SLUG).then((site) => {
+      if (!active) return
+      if (site) {
+        setDraft(mergeSchoolWebsiteWithOverrides(site))
+      }
+      setIsLoading(false)
+    })
+    return () => {
+      active = false
+    }
   }, [])
+
+  if (isLoading || !draft) {
+    return (
+      <div className="flex justify-center py-12">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    )
+  }
 
   const publicPath = getSchoolWebsitePath(draft.slug)
   const websiteIncluded = isWebsiteIncludedInPlan(draft.subscriptionPlan)
 
   const update = (patch: SchoolWebsitePatch) => {
-    setDraft((prev) => ({ ...prev, ...patch }))
+    setDraft((prev) => (prev ? { ...prev, ...patch } : prev))
   }
 
   const handleSave = () => {
@@ -49,7 +104,7 @@ export function SchoolWebsiteAdminPanel() {
     saveSchoolWebsiteOverrides(DEFAULT_SCHOOL_WEBSITE_SLUG, overrides)
     toast({
       title: 'School website updated',
-      description: 'Changes are live on your public website.',
+      description: 'Local preview overrides saved. Persist website content via your backend when available.',
     })
   }
 

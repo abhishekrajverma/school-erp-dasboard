@@ -20,10 +20,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     queryKey: queryKeys.auth.me(),
     queryFn: async () => {
       try {
-        return await authApi.me()
+        const nextUser = await authApi.me()
+        saveSession(nextUser)
+        return nextUser
       } catch {
-        const cached = getSession()
-        return cached
+        clearSession()
+        await authApi.logout().catch(() => undefined)
+        return null
       }
     },
     retry: false,

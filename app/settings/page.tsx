@@ -7,6 +7,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { Save, School, Palette, Shield, Bell, CreditCard, Building2, Globe } from 'lucide-react'
 import { SchoolWebsiteAdminPanel } from '@/components/school-website/school-website-admin-panel'
 import { MasterDataPanel } from '@/components/settings/master-data-panel'
+import { FinancialYearSettingsPanel } from '@/components/settings/financial-year-settings-panel'
 import { DEFAULT_SCHOOL_WEBSITE_SLUG, getSchoolWebsitePath } from '@/lib/school-website'
 import { DashboardLayout } from '@/components/dashboard/layout'
 import { Button } from '@/components/ui/button'
@@ -102,7 +103,12 @@ export default function SettingsPage() {
           </motion.div>
         )}
 
-        {activeTab === 'master-data' && <MasterDataPanel />}
+        {activeTab === 'master-data' && (
+          <div className="space-y-6">
+            <FinancialYearSettingsPanel />
+            <MasterDataPanel />
+          </div>
+        )}
 
         {activeTab === 'website' && (
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>

@@ -7,12 +7,8 @@ import { Check, Sparkles } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { pricing } from '@/lib/landing/content'
+import { salesContact } from '@/lib/landing/sales'
 import { cn } from '@/lib/utils'
-
-function formatPrice(price: number | null) {
-  if (price === null) return 'Custom'
-  return `₹${price.toLocaleString('en-IN')}`
-}
 
 export function PricingSection() {
   const ref = React.useRef(null)
@@ -29,12 +25,10 @@ export function PricingSection() {
         >
           <Badge variant="outline" className="mb-3 rounded-full">
             <Sparkles className="mr-1 h-3 w-3" />
-            Transparent pricing
+            Flexible plans
           </Badge>
           <h2 className="text-3xl font-bold tracking-tight md:text-5xl">Plans that grow with you</h2>
-          <p className="mx-auto mt-3 max-w-xl text-muted-foreground">
-            Start with a 14-day trial. Upgrade anytime. GST billed separately at 18%.
-          </p>
+          <p className="mx-auto mt-3 max-w-xl text-muted-foreground">{salesContact.pricingNote}</p>
         </motion.div>
 
         <div ref={ref} className="grid gap-6 lg:grid-cols-3">
@@ -59,12 +53,10 @@ export function PricingSection() {
               )}
               <h3 className="text-xl font-bold">{plan.name}</h3>
               <p className="mt-1 text-sm text-muted-foreground">{plan.description}</p>
-              <p className="mt-4 text-4xl font-bold tracking-tight">
-                {formatPrice(plan.price)}
-                {plan.price !== null && (
-                  <span className="text-base font-normal text-muted-foreground">/{plan.period}</span>
-                )}
+              <p className="mt-4 text-2xl font-bold tracking-tight text-primary">
+                {salesContact.pricingHeadline}
               </p>
+              <p className="mt-1 text-sm text-muted-foreground">Custom quote for your school size</p>
               <ul className="mt-6 flex-1 space-y-3">
                 {plan.features.map((f) => (
                   <li key={f} className="flex items-start gap-2 text-sm">

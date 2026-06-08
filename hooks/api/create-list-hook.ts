@@ -3,6 +3,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import type { ListQueryParams } from '@/lib/api/types/common'
 import { useAuthQueryEnabled } from './use-auth-query'
+import { useQueryFinancialYear } from '@/hooks/use-query-financial-year'
 
 type ResourceApi<T, Create = Partial<T>, Update = Partial<T>> = {
   list: (params?: ListQueryParams) => Promise<{ items: T[] }>
@@ -18,8 +19,9 @@ export function createListHook<T>(
 ) {
   return function useList(params?: ListQueryParams) {
     const enabled = useAuthQueryEnabled()
+    const financialYear = useQueryFinancialYear()
     return useQuery({
-      queryKey: [...queryKeyBase, params ?? {}],
+      queryKey: [...queryKeyBase, { ...(params ?? {}), financialYear }],
       queryFn: () => api.list(params),
       enabled,
     })

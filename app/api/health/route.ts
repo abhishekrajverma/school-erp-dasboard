@@ -6,7 +6,7 @@ export async function GET() {
     status: 'ok',
     app: 'EduSync',
     environment: env.isProd ? 'production' : 'development',
-    mockMode: env.useMock,
+    apiUrl: env.apiUrl,
     timestamp: new Date().toISOString(),
   })
 }

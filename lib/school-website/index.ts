@@ -1,9 +1,8 @@
 import {
   DEFAULT_SCHOOL_WEBSITE_SLUG,
+  fetchSchoolWebsiteBySlug,
   getAllPublishedSchoolSlugs,
-  getSeedSchoolWebsite,
-  schoolWebsitesSeed,
-} from './data'
+} from './fetch'
 import { loadSchoolWebsiteOverrides, mergeSchoolWebsite } from './storage'
 import type { SchoolWebsite, SchoolWebsitePatch } from './types'
 import { formatFeeFrequency, getSchoolWebsitePath, slugifySchoolName } from './utils'
@@ -16,26 +15,27 @@ export type {
 } from './types'
 export {
   DEFAULT_SCHOOL_WEBSITE_SLUG,
+  fetchSchoolWebsiteBySlug,
   getAllPublishedSchoolSlugs,
-  schoolWebsitesSeed,
-} from './data'
+} from './fetch'
 export { loadSchoolWebsiteOverrides, saveSchoolWebsiteOverrides } from './storage'
 export { slugifySchoolName, getSchoolWebsitePath, formatFeeFrequency }
 
-export function getSchoolWebsite(slug: string): SchoolWebsite | null {
-  const seed = getSeedSchoolWebsite(slug)
-  if (!seed) return null
+export function mergeSchoolWebsiteWithOverrides(base: SchoolWebsite): SchoolWebsite {
+  const overrides = loadSchoolWebsiteOverrides(base.slug)
+  return mergeSchoolWebsite(base, overrides)
+}
+
+/** Server-side lookup from ASP.NET tenant API */
+export async function getSchoolWebsiteStatic(slug: string): Promise<SchoolWebsite | null> {
+  const site = await fetchSchoolWebsiteBySlug(slug)
+  if (!site) return null
   const overrides = loadSchoolWebsiteOverrides(slug)
-  return mergeSchoolWebsite(seed, overrides)
+  return mergeSchoolWebsite(site, overrides)
 }
 
-/** Server-safe lookup (seed data only, no localStorage) */
-export function getSchoolWebsiteStatic(slug: string): SchoolWebsite | null {
-  return getSeedSchoolWebsite(slug)
-}
-
-export function getDefaultSchoolWebsite(): SchoolWebsite {
-  return getSeedSchoolWebsite(DEFAULT_SCHOOL_WEBSITE_SLUG)!
+export async function getDefaultSchoolWebsite(): Promise<SchoolWebsite | null> {
+  return getSchoolWebsiteStatic(DEFAULT_SCHOOL_WEBSITE_SLUG)
 }
 
 export function buildSchoolWebsiteUrl(slug: string, origin?: string) {

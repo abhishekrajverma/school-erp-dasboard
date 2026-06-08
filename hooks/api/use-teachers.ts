@@ -6,12 +6,14 @@ import { queryKeys } from '@/hooks/api/query-keys'
 import type { CreateTeacherRequest, UpdateTeacherRequest } from '@/lib/api/types/teachers'
 import type { ListQueryParams } from '@/lib/api/types/common'
 import { useAuthQueryEnabled } from './use-auth-query'
+import { useQueryFinancialYear } from '@/hooks/use-query-financial-year'
 
 export function useTeachers(params?: ListQueryParams) {
   const enabled = useAuthQueryEnabled()
+  const financialYear = useQueryFinancialYear()
 
   return useQuery({
-    queryKey: queryKeys.teachers.list(params),
+    queryKey: queryKeys.teachers.list({ ...(params ?? {}), financialYear }),
     queryFn: () => teachersApi.list(params),
     enabled,
   })

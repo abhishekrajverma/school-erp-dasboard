@@ -3,11 +3,7 @@ export {
   REFRESH_TOKEN_COOKIE,
   SESSION_COOKIE,
   AUTH_STORAGE_KEY,
-  DEMO_TOKEN_PREFIX,
-  decodeDemoSession,
-  encodeDemoSession,
   getSecureCookieOptions,
-  isDemoToken,
 } from './cookies'
 
 export {
@@ -29,3 +25,5 @@ export type {
 } from './types'
 
 export { getRoleHomePath } from './types'
+
+export { getRoleFromJwt, decodeJwtPayload } from './jwt'

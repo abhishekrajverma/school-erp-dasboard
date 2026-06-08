@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { getSchoolWebsite } from '@/lib/school-website'
+import { mergeSchoolWebsiteWithOverrides } from '@/lib/school-website'
 import type { SchoolWebsite } from '@/lib/school-website/types'
 import { SchoolSiteNav } from './school-site-nav'
 import { SchoolSiteFooter } from './school-site-footer'
@@ -15,8 +15,7 @@ export function SchoolSiteShell({ site: initialSite, children }: SchoolSiteShell
   const [site, setSite] = React.useState(initialSite)
 
   React.useEffect(() => {
-    const merged = getSchoolWebsite(initialSite.slug)
-    if (merged) setSite(merged)
+    setSite(mergeSchoolWebsiteWithOverrides(initialSite))
   }, [initialSite.slug])
 
   return (
@@ -53,8 +52,7 @@ export function SchoolWebsiteLiveSection({
   const [site, setSite] = React.useState(initialSite)
 
   React.useEffect(() => {
-    const merged = getSchoolWebsite(initialSite.slug)
-    if (merged) setSite(merged)
+    setSite(mergeSchoolWebsiteWithOverrides(initialSite))
   }, [initialSite.slug])
 
   return <>{children(site)}</>

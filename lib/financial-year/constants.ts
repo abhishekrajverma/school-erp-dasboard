@@ -1,0 +1,5 @@
+export const FINANCIAL_YEAR_STORAGE_PREFIX = 'edusync-active-fy'
+export const FINANCIAL_YEAR_CONFIG_PREFIX = 'edusync-fy-config'
+export const FINANCIAL_YEAR_COOKIE = 'erp-financial-year'
+export const FINANCIAL_YEAR_HEADER = 'X-Financial-Year'
+export const FINANCIAL_YEAR_UPDATED_EVENT = 'edusync-financial-year-updated'

@@ -239,7 +239,7 @@ export function InlineApiError({ error, className }: InlineApiErrorProps) {
       <p className="mt-2 text-[13px] leading-relaxed text-[#767676] dark:text-muted-foreground">
         {getApiErrorMessage(
           error,
-          'Invalid email or password. Use the demo credentials below.',
+          'Invalid email or password. Check your credentials and try again.',
         )}
       </p>
       {serverDown && env.isDev ? (

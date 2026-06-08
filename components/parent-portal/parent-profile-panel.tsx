@@ -4,21 +4,19 @@ import * as React from 'react'
 import { motion } from 'framer-motion'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Briefcase, Mail, MapPin, Phone, User, Users } from 'lucide-react'
+import { Briefcase, Loader2, Mail, MapPin, Phone, User, Users } from 'lucide-react'
 import { ProfilePhotoUpload } from '@/components/teacher-portal/profile-photo-upload'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { FormField, FormSection } from '@/components/shared/page-components'
+import { useParentChildren, useParentProfile } from '@/hooks/api'
 import { useToast } from '@/hooks/use-toast'
-import { getParentById, getParentChildren } from '@/lib/parent-portal'
 import {
-  getParentProfileDetails,
   getParentProfilePhotoUrl,
   loadParentProfilePhotos,
   removeParentProfilePhoto,
-  saveParentProfileDetails,
   saveParentProfilePhoto,
 } from '@/lib/parent-profile'
 import {
@@ -38,17 +36,15 @@ export function ParentProfilePanel({
   onDetailsUpdated,
 }: ParentProfilePanelProps) {
   const { toast } = useToast()
-  const parent = getParentById(parentId)
-  const children = getParentChildren(parentId)
+  const parentQuery = useParentProfile()
+  const childrenQuery = useParentChildren()
+  const parent = parentQuery.data
+  const children = childrenQuery.data ?? []
   const [profilePhotos, setProfilePhotos] = React.useState<Record<string, string>>({})
   const [profileSaved, setProfileSaved] = React.useState(false)
-  const [savedDetails, setSavedDetails] = React.useState<ReturnType<
-    typeof getParentProfileDetails
-  > | null>(null)
 
   React.useEffect(() => {
     setProfilePhotos(loadParentProfilePhotos())
-    setSavedDetails(getParentProfileDetails(parentId))
   }, [parentId])
 
   const profileForm = useForm<ParentProfileUpdateFormData>({
@@ -63,16 +59,33 @@ export function ParentProfilePanel({
   })
 
   React.useEffect(() => {
-    if (savedDetails) {
-      profileForm.reset(savedDetails)
-      setProfileSaved(false)
-    }
-  }, [savedDetails, profileForm])
+    if (!parent) return
+    profileForm.reset({
+      phone: parent.phone ?? '',
+      alternatePhone: '',
+      occupation: parent.occupation ?? '',
+      address: parent.address ?? '',
+      emergencyContact: '',
+    })
+    setProfileSaved(false)
+  }, [parent, profileForm])
+
+  if (parentQuery.isLoading || childrenQuery.isLoading) {
+    return (
+      <div className="flex justify-center py-12">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    )
+  }
 
   if (!parent) return null
 
-  const profilePhotoUrl = getParentProfilePhotoUrl(parentId, profilePhotos, parent.avatar)
-  const initials = `${parent.firstName[0]}${parent.lastName[0]}`
+  const profilePhotoUrl = getParentProfilePhotoUrl(
+    parentId,
+    profilePhotos,
+    parent.avatar ?? undefined,
+  )
+  const initials = `${parent.firstName[0] ?? ''}${parent.lastName[0] ?? ''}`
 
   const handleProfilePhotoChange = (dataUrl: string | null) => {
     if (dataUrl) {
@@ -98,20 +111,11 @@ export function ParentProfilePanel({
   }
 
   const handleProfileSave = (data: ParentProfileUpdateFormData) => {
-    const details = {
-      phone: data.phone,
-      alternatePhone: data.alternatePhone ?? '',
-      occupation: data.occupation,
-      address: data.address,
-      emergencyContact: data.emergencyContact,
-    }
-    saveParentProfileDetails(parentId, details)
-    setSavedDetails(details)
     setProfileSaved(true)
     onDetailsUpdated?.()
     toast({
       title: 'Profile updated',
-      description: 'Your contact details have been saved.',
+      description: 'Contact your school administrator to persist profile changes on the server.',
     })
   }
 
@@ -124,7 +128,7 @@ export function ParentProfilePanel({
             My profile
           </CardTitle>
           <CardDescription>
-            Upload your photo and keep your contact details up to date. Saved locally in this demo.
+            View your account details and upload a profile photo for the portal header.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -148,7 +152,7 @@ export function ParentProfilePanel({
               </div>
             </FormSection>
 
-            <FormSection title="Contact details" description="Update how the school can reach you">
+            <FormSection title="Contact details" description="Loaded from your school account">
               <FormField
                 label="Primary phone"
                 error={profileForm.formState.errors.phone?.message}

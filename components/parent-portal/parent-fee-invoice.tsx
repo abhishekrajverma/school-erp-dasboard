@@ -19,7 +19,7 @@ import {
   PAYMENT_METHODS,
   type ParentFeePayment,
 } from '@/lib/parent-fees'
-import type { FeeRecord } from '@/lib/erp-data'
+import type { FeeRecordDto } from '@/lib/api/types/fees'
 
 export function ParentFeeInvoiceDialog({
   open,
@@ -30,7 +30,7 @@ export function ParentFeeInvoiceDialog({
   open: boolean
   onClose: () => void
   payment: ParentFeePayment | null
-  fee: FeeRecord | null
+  fee: FeeRecordDto | null
 }) {
   const invoiceRef = React.useRef<HTMLDivElement>(null)
   const school = getSchoolInvoiceMeta()

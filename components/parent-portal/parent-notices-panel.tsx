@@ -25,11 +25,13 @@ import { Tabs } from '@/components/shared/page-components'
 import { formatDate } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import {
-  getParentNoticesRich,
   getNoticeTypeLabel,
+  mapNotificationToParentNotice,
   type ParentNotice,
   type ParentNoticeType,
 } from '@/lib/parent-notices'
+import type { NotificationDto } from '@/lib/api/types/resources'
+import { Loader2 } from 'lucide-react'
 
 const typeConfig: Record<
   ParentNoticeType,
@@ -286,8 +288,19 @@ function NoticeCard({
   )
 }
 
-export function ParentNoticesPanel({ onNavigateToFees }: { onNavigateToFees?: () => void }) {
-  const notices = getParentNoticesRich()
+export function ParentNoticesPanel({
+  notices: apiNotices = [],
+  isLoading = false,
+  onNavigateToFees,
+}: {
+  notices?: NotificationDto[]
+  isLoading?: boolean
+  onNavigateToFees?: () => void
+}) {
+  const notices = React.useMemo(
+    () => apiNotices.map(mapNotificationToParentNotice),
+    [apiNotices],
+  )
   const [filter, setFilter] = React.useState<FilterId>('all')
 
   const filtered =
@@ -308,6 +321,12 @@ export function ParentNoticesPanel({ onNavigateToFees }: { onNavigateToFees?: ()
 
   return (
     <div className="space-y-6">
+      {isLoading ? (
+        <div className="flex justify-center py-12">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      ) : (
+        <>
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h3 className="text-lg font-semibold tracking-tight flex items-center gap-2">
@@ -354,6 +373,8 @@ export function ParentNoticesPanel({ onNavigateToFees }: { onNavigateToFees?: ()
           ))
         )}
       </div>
+        </>
+      )}
     </div>
   )
 }
